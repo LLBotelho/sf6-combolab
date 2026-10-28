@@ -1,0 +1,145 @@
+diff --git a/index.html b/index.html
+index 183d41f..1c0c4b4 100644
+--- a/index.html
++++ b/index.html
+@@ -4,8 +4,9 @@
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <meta name="theme-color" content="#100d20" />
++    <link rel="icon" type="image/svg+xml" href="/assets/sf6-logo.svg" />
+     <meta name="description" content="Sua coleção de mains e seu caderno visual de combos de Street Fighter 6." />
+-    <title>SF6 Combo Builder — Training Grounds</title>
++    <title>ComboLab — Street Fighter 6</title>
+   </head>
+   <body>
+     <div id="root"></div>
+diff --git a/src/App.tsx b/src/App.tsx
+index 5e88b36..7f0b362 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,5 +1,5 @@
+ import { NavLink, Route, Routes } from 'react-router-dom';
+-import { BookOpen, Gamepad2, House, Settings2, Swords, X, AlertTriangle, Star } from 'lucide-react';
++import { BookOpen, UserRound, Settings2, X, AlertTriangle, Star } from 'lucide-react';
+ import { useCollection } from './hooks/useCollection';
+ import { HomePage } from './pages/HomePage';
+ import { FighterPage } from './pages/FighterPage';
+@@ -9,8 +9,8 @@ export default function App() {
+   const { data, warning, dismissWarning } = useCollection();
+   return <div className="app-shell">
+     <header className="site-header"><div className="header-inner">
+-      <NavLink to="/" className="site-logo"><span className="logo-icon"><Swords size={25} strokeWidth={2.7}/></span><span className="logo-copy"><strong>COMBO<span>LAB</span></strong><small>STREET FIGHTER 6</small></span></NavLink>
+-      <nav className="main-nav" aria-label="Navegação principal"><NavLink to="/" end className={({isActive}) => isActive ? 'nav-active' : ''}><House size={16}/> HOME</NavLink><NavLink to="/mains" className={({isActive}) => isActive ? 'nav-active' : ''}><Gamepad2 size={17}/> MEUS MAINS <span className="nav-count">{data.mains.length}</span></NavLink><NavLink to="/settings" className={({isActive}) => isActive ? 'nav-active' : ''}><Settings2 size={16}/> CONFIGURAÇÕES</NavLink></nav>
++      <NavLink to="/" className="site-logo"><span className="logo-icon"><img src="/assets/sf6-logo.svg" alt="" aria-hidden="true" /></span><span className="logo-copy"><strong>COMBO<span>LAB</span></strong></span></NavLink>
++      <nav className="main-nav" aria-label="Navegação principal"><NavLink to="/" end className={({isActive}) => isActive ? 'nav-active' : ''}><UserRound size={16}/> PERSONAGENS</NavLink><NavLink to="/mains" className={({isActive}) => isActive ? 'nav-active' : ''}><Star size={17}/> MEUS FAVORITOS <span className="nav-count">{data.mains.length}</span></NavLink><NavLink to="/settings" className={({isActive}) => isActive ? 'nav-active' : ''}><Settings2 size={16}/> CONFIGURAÇÕES</NavLink></nav>
+       <div className="header-status"><span className="header-status-dot"/> LOCAL MODE <span className="status-version">/ v0.1</span></div>
+     </div></header>
+     {warning && <div role="alert" className="warning-banner"><AlertTriangle size={17}/><span>{warning}</span><button onClick={dismissWarning} aria-label="Fechar aviso"><X size={18}/></button></div>}
+diff --git a/src/components/FighterCard.tsx b/src/components/FighterCard.tsx
+index fbe2524..2af9928 100644
+--- a/src/components/FighterCard.tsx
++++ b/src/components/FighterCard.tsx
+@@ -16,8 +16,8 @@ export function FighterCard({ fighter, index = 0 }: { fighter: Fighter; index?:
+     </Link>
+     <div className="fighter-card-bottom">
+       <div><p className="fighter-card-title">{fighter.name}</p><p className="fighter-card-subtitle">{count} {count === 1 ? 'COMBO SALVO' : 'COMBOS SALVOS'}</p></div>
+-      <button type="button" onClick={() => toggleMain(fighter.id)} aria-label={main ? `Remover ${fighter.name} dos Mains` : `Adicionar ${fighter.name} aos Mains`}
+-        title={main ? 'Remover dos Mains (combos preservados)' : 'Adicionar aos Mains'} className={`fighter-add ${main ? 'fighter-add--active' : ''}`}>
++      <button type="button" onClick={() => toggleMain(fighter.id)} aria-label={main ? `Remover ${fighter.name} dos favoritos` : `Adicionar ${fighter.name} aos favoritos`}
++        title={main ? 'Remover dos favoritos (combos preservados)' : 'Adicionar aos favoritos'} className={`fighter-add ${main ? 'fighter-add--active' : ''}`}>
+         {main ? <Check size={20}/> : <Plus size={20}/>}</button>
+     </div>
+   </article>;
+diff --git a/src/pages/FighterPage.tsx b/src/pages/FighterPage.tsx
+index 61e0259..1578466 100644
+--- a/src/pages/FighterPage.tsx
++++ b/src/pages/FighterPage.tsx
+@@ -60,7 +60,7 @@ export function FighterPage() {
+           <p>Todos os combos em um só lugar. Filtre, navegue e treine.</p>
+         </div>
+         <div className="playbook-actions">
+-          <button type="button" onClick={() => toggleMain(fighter.id)} className="secondary-button main-toggle" aria-pressed={main}><Star size={15} fill={main ? 'currentColor' : 'none'}/>{main ? 'NOS MEUS MAINS' : 'ADICIONAR AOS MAINS'}</button>
++          <button type="button" onClick={() => toggleMain(fighter.id)} className="secondary-button main-toggle" aria-pressed={main}><Star size={15} fill={main ? 'currentColor' : 'none'}/>{main ? 'NOS FAVORITOS' : 'ADICIONAR AOS FAVORITOS'}</button>
+           <button type="button" onClick={() => setEditing('new')} className="primary-button"><Plus size={17}/> NOVO COMBO</button>
+         </div>
+       </header>
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index f92ecfa..c28a78a 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -67,7 +67,7 @@ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+             })}
+           </div>
+           {shown.length === 0 && <div className="select-empty">Nenhum lutador encontrado. <button type="button" onClick={() => setQuery('')}>Limpar busca</button></div>}
+-          <div className="select-roster-bottom"><span><span className="select-bottom-dot"/> SELECT YOUR CHARACTER</span><span>{data.mains.length} MAINS / {data.combos.length} COMBOS SALVOS</span></div>
++          <div className="select-roster-bottom"><span><span className="select-bottom-dot"/> SELECT YOUR CHARACTER</span><span>{data.mains.length} FAVORITOS / {data.combos.length} COMBOS SALVOS</span></div>
+         </div>
+ 
+         <aside className="select-stage" style={{ '--fighter-color': selected.hue } as CSSProperties} aria-label={`Personagem selecionado: ${selected.name}`}>
+@@ -88,7 +88,7 @@ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+               <Link className="primary-button" to={`/fighter/${selected.id}`}><Gamepad2 size={17}/> ABRIR COMBOS <ArrowRight size={16}/></Link>
+               <button type="button" className={`select-main-button ${isSelectedMain ? 'select-main-button--active' : ''}`} onClick={() => toggleMain(selected.id)}>
+                 {isSelectedMain ? <Check size={17}/> : <Plus size={17}/>}
+-                {isSelectedMain ? 'NOS MEUS MAINS' : 'ADICIONAR AOS MAINS'}
++                {isSelectedMain ? 'NOS FAVORITOS' : 'ADICIONAR AOS FAVORITOS'}
+               </button>
+             </div>
+             <Link to="/mains" className="select-my-mains"><Star size={13}/> MINHA COLEÇÃO <ArrowRight size={13}/></Link>
+@@ -99,12 +99,12 @@ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+     </main>;
+   }
+ 
+-  // Keep the existing Mains page and its search / filter / cards intact.
++  // Keep the existing favorites page and its search / filter / cards intact.
+   return <main>
+     <section id="fighters" className="fighters-section">
+-      <div className="section-bar"><div><span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span><h2>MEUS <em>MAINS</em><span className="heading-dot">.</span></h2><p>Seus lutadores favoritos e todos os combos que você está treinando.</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
+-      <div className="fighter-tools"><div className="filter-pills"><button type="button" className={filter === 'all' ? 'filter-active' : ''} onClick={() => setFilter('all')}><SlidersHorizontal size={15}/> TODOS OS FIGHTERS</button><button type="button" className={filter === 'mains' ? 'filter-active' : ''} onClick={() => setFilter('mains')}><Star size={15}/> MEUS MAINS <span className="count-pill">{data.mains.length}</span></button></div><label className="search-box"><Search size={18}/><input placeholder="Buscar lutador..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar lutador"/><kbd>⌕</kbd></label></div>
+-      {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Escolha lutadores na Home e adicione-os aos Mains.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
++      <div className="section-bar"><div><span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span><h2>MEUS <em>FAVORITOS</em><span className="heading-dot">.</span></h2><p>Seus lutadores favoritos e todos os combos que você está treinando.</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
++      <div className="fighter-tools"><div className="filter-pills"><button type="button" className={filter === 'all' ? 'filter-active' : ''} onClick={() => setFilter('all')}><SlidersHorizontal size={15}/> TODOS OS FIGHTERS</button><button type="button" className={filter === 'mains' ? 'filter-active' : ''} onClick={() => setFilter('mains')}><Star size={15}/> MEUS FAVORITOS <span className="count-pill">{data.mains.length}</span></button></div><label className="search-box"><Search size={18}/><input placeholder="Buscar lutador..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar lutador"/><kbd>⌕</kbd></label></div>
++      {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Escolha personagens na página Personagens e adicione-os aos favoritos.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
+       <div className="roster-note"><Sparkles size={14}/> Seus SVGs em public/assets serão encontrados automaticamente ao iniciar o projeto.</div>
+     </section>
+   </main>;
+diff --git a/src/pages/SettingsPage.tsx b/src/pages/SettingsPage.tsx
+index 34a49d2..4638c48 100644
+--- a/src/pages/SettingsPage.tsx
++++ b/src/pages/SettingsPage.tsx
+@@ -13,7 +13,7 @@ export function SettingsPage() {
+     finally { if (inputRef.current) inputRef.current.value = ''; }
+   }
+   return <main className="settings-page"><span className="eyebrow">SYSTEM / LOCAL DATA</span><h1>CONFIGURAÇÕES<span className="heading-dot">.</span></h1><p>Todos os seus dados permanecem neste navegador e podem ser exportados para um arquivo.</p>
+-    <div className="settings-grid"><article className="settings-card"><HardDrive size={28}/><h2>ARMAZENAMENTO LOCAL</h2><p>Sem conta, nuvem ou assinatura. Os dados são separados por navegador e dispositivo.</p><div className="settings-summary"><span>{data.mains.length} mains</span><span>{data.combos.length} combos</span></div></article><article className="settings-card"><Download size={28}/><h2>EXPORTAR BACKUP</h2><p>Baixe um JSON com seus mains, comandos, categorias, etiquetas e notas.</p><button type="button" className="primary-button" onClick={exportData}><Download size={17}/> BAIXAR JSON</button></article><article className="settings-card"><Upload size={28}/><h2>IMPORTAR BACKUP</h2><p>Carregue um backup salvo. O arquivo será validado antes de substituir os dados atuais.</p><input ref={inputRef} type="file" accept=".json,application/json" className="sr-only" onChange={(event) => void handleFile(event.target.files?.[0])}/><button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}><Upload size={17}/> SELECIONAR ARQUIVO</button></article></div>
++    <div className="settings-grid"><article className="settings-card"><HardDrive size={28}/><h2>ARMAZENAMENTO LOCAL</h2><p>Sem conta, nuvem ou assinatura. Os dados são separados por navegador e dispositivo.</p><div className="settings-summary"><span>{data.mains.length} personagens favoritos</span><span>{data.combos.length} combos</span></div></article><article className="settings-card"><Download size={28}/><h2>EXPORTAR BACKUP</h2><p>Baixe um JSON com seus personagens favoritos, comandos, categorias, etiquetas e notas.</p><button type="button" className="primary-button" onClick={exportData}><Download size={17}/> BAIXAR JSON</button></article><article className="settings-card"><Upload size={28}/><h2>IMPORTAR BACKUP</h2><p>Carregue um backup salvo. O arquivo será validado antes de substituir os dados atuais.</p><input ref={inputRef} type="file" accept=".json,application/json" className="sr-only" onChange={(event) => void handleFile(event.target.files?.[0])}/><button type="button" className="secondary-button" onClick={() => inputRef.current?.click()}><Upload size={17}/> SELECIONAR ARQUIVO</button></article></div>
+     {message && <p role="status" className="settings-message">{message}</p>}
+     <div className="settings-notes"><p><ShieldCheck size={19}/> Importações são verificadas. A substituição precisa ser confirmada.</p><p><AlertTriangle size={19}/> Limpar o armazenamento do navegador pode excluir os combos: faça backups regularmente.</p></div>
+   </main>;
+diff --git a/src/styles.css b/src/styles.css
+index e864c35..f767d36 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -16,12 +16,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+ .site-header { position:relative; z-index:15; min-height:77px; background:rgba(13,11,27,.96); border-bottom:1px solid #3a2b51; }
+ .header-inner { max-width:1480px; margin:auto; padding:0 38px; min-height:77px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+ .site-logo { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+-.logo-icon { display:grid; place-items:center; width:41px; height:41px; color:white; transform:skew(-9deg); background:linear-gradient(140deg,#eb3acb,#7a3af8); box-shadow:0 0 18px #bb34c655; }
+-.logo-icon svg { transform:skew(9deg); }
++.logo-icon { display:grid; place-items:center; flex:0 0 auto; width:41px; height:41px; }
++.logo-icon img { display:block; width:100%; height:100%; object-fit:contain; }
+ .logo-copy { display:flex; flex-direction:column; line-height:1; }
+ .logo-copy strong { font-family:Impact,'Arial Black',sans-serif; letter-spacing:.8px; font-size:26px; }
+ .logo-copy strong span { color:var(--pink); }
+-.logo-copy small { margin-top:5px; font-size:9px; font-weight:800; color:#c7bed8; letter-spacing:2.1px; }
+ .main-nav { align-self:stretch; display:flex; gap:8px; }
+ .main-nav a { position:relative; display:flex; align-items:center; gap:9px; white-space:nowrap; padding:0 19px; color:#9990aa; font-size:11px; letter-spacing:.9px; font-weight:850; }
+ .main-nav a:hover { color:var(--white); }
+@@ -257,7 +256,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+ /* Responsiveness */
+ @media (max-width:1200px) { .fighter-grid { grid-template-columns:repeat(5,minmax(0,1fr)); } .hero-copy { padding-left:48px; } .fighters-section,.fighter-page { padding-left:36px; padding-right:36px; } .hero h1 { font-size:clamp(60px,7vw,92px); } .profile-actions { padding-right:16px; } .header-inner { padding:0 24px; } .main-nav a { padding:0 12px; } }
+ @media (max-width:980px) { .fighter-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .hero { grid-template-columns:65% 35%; } .hero-copy { padding-left:35px; } .hero h1 { font-size:clamp(58px,7vw,78px); } .hero-art { inset:0 -42% 0 -28%; background-size:auto 102%; } .header-status { display:none; } .profile-actions { align-self:center; margin-left:auto; } .fighter-profile-art { flex-basis:195px; } .fighter-profile-info h1 { font-size:55px; } .combos-layout { grid-template-columns:200px 1fr; gap:17px; } .command-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+-@media (max-width:760px) { .site-header,.header-inner { min-height:65px; } .header-inner { padding:0 15px; gap:10px; } .logo-icon { width:34px; height:34px; } .logo-icon svg { width:20px; } .logo-copy strong { font-size:19px; } .logo-copy small { font-size:7px; letter-spacing:1.1px; } .main-nav a { padding:0 8px; font-size:0; } .main-nav a svg { width:20px; height:20px; } .main-nav a .nav-count { font-size:9px; } .main-nav a.nav-active:after { left:7px; right:7px; } .main-nav { gap:1px; } .hero { display:block; min-height:600px; } .hero-copy { padding:55px 25px 70px; } .hero h1 { position:relative; z-index:5; font-size:clamp(52px,11vw,85px); } .hero-description { max-width:440px; } .hero-visual { position:absolute; z-index:-1; opacity:.38; inset:90px 0 0 35%; } .hero-ambient { position:absolute; inset:0; background:linear-gradient(100deg,#1b1236 20%,transparent 100%); } .hero-art { inset:0 -60% 0 -20%; background-size:auto 100%; } .hero-art-label,.hero-kanji,.hero-vertical { display:none; } .fighters-section { padding:45px 18px 60px; } .section-bar h2 { font-size:41px; } .section-bar p { line-height:1.6; } .roster-count strong { font-size:40px; } .fighter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; } .fighter-art-zone { height:150px; } .fighter-placeholder { font-size:75px; } .fighter-card-title { font-size:20px; } .fighter-card-bottom { padding:10px 8px; } .fighter-card-top { padding:8px; font-size:7px; } .fighter-add { width:30px; height:30px; } .fighter-tools { gap:15px; } .filter-pills button { font-size:9px; padding:0 9px; } .search-box { max-width:none; width:100%; } .footer-inner { padding:20px; flex-direction:column; align-items:start; } .footer-links { flex-wrap:wrap; gap:8px; } .fighter-page { padding:18px 17px 55px; } .fighter-hero { min-height:270px; gap:10px; } .fighter-profile-art { flex-basis:145px; } .fighter-profile-art>span { font-size:110px; } .fighter-profile-info { padding:22px 12px 22px 0; } .fighter-profile-info h1 { font-size:43px; } .fighter-profile-info>p { font-size:11px; } .profile-stats { gap:14px; margin-top:18px; } .profile-stats b { font-size:24px; } .profile-stats span { font-size:8px; } .profile-actions { position:absolute; left:15px; bottom:12px; right:15px; padding:0; flex-direction:row; justify-content:end; } .profile-actions button { min-height:38px; padding:9px 10px; font-size:9px; } .fighter-hero { padding-bottom:48px; } .combos-layout { display:block; } .category-sidebar { display:flex; overflow-x:auto; border:none; background:transparent; padding:0 0 14px; gap:4px; margin-bottom:12px; } .sidebar-heading,.sidebar-tip { display:none; } .sidebar-item { width:auto; flex:0 0 auto; gap:9px; padding:8px 12px; border:1px solid #503c60; border-left:1px solid #503c60; min-height:37px; background:#251c35; } .sidebar-item--active { border-color:#c34ace; background:#59296b; } .combos-list-heading h2 { font-size:31px; } .settings-page { padding:40px 18px 65px; } .settings-grid { grid-template-columns:1fr; } .settings-card { min-height:210px; } .editor-overlay { padding:0; } .editor-panel { width:100%; height:100dvh; } .editor-content { display:flex; flex-direction:column; overflow-y:auto; } .editor-left,.editor-right { overflow:visible; } .editor-right { border-left:none; border-top:1px solid #503260; } .editor-header { padding:16px 19px; } .command-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .command-picker { min-height:105px; } }
++@media (max-width:760px) { .site-header,.header-inner { min-height:65px; } .header-inner { padding:0 15px; gap:10px; } .logo-icon { width:34px; height:34px; } .logo-icon img { width:100%; } .logo-copy strong { font-size:19px; }  .main-nav a { padding:0 8px; font-size:0; } .main-nav a svg { width:20px; height:20px; } .main-nav a .nav-count { font-size:9px; } .main-nav a.nav-active:after { left:7px; right:7px; } .main-nav { gap:1px; } .hero { display:block; min-height:600px; } .hero-copy { padding:55px 25px 70px; } .hero h1 { position:relative; z-index:5; font-size:clamp(52px,11vw,85px); } .hero-description { max-width:440px; } .hero-visual { position:absolute; z-index:-1; opacity:.38; inset:90px 0 0 35%; } .hero-ambient { position:absolute; inset:0; background:linear-gradient(100deg,#1b1236 20%,transparent 100%); } .hero-art { inset:0 -60% 0 -20%; background-size:auto 100%; } .hero-art-label,.hero-kanji,.hero-vertical { display:none; } .fighters-section { padding:45px 18px 60px; } .section-bar h2 { font-size:41px; } .section-bar p { line-height:1.6; } .roster-count strong { font-size:40px; } .fighter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; } .fighter-art-zone { height:150px; } .fighter-placeholder { font-size:75px; } .fighter-card-title { font-size:20px; } .fighter-card-bottom { padding:10px 8px; } .fighter-card-top { padding:8px; font-size:7px; } .fighter-add { width:30px; height:30px; } .fighter-tools { gap:15px; } .filter-pills button { font-size:9px; padding:0 9px; } .search-box { max-width:none; width:100%; } .footer-inner { padding:20px; flex-direction:column; align-items:start; } .footer-links { flex-wrap:wrap; gap:8px; } .fighter-page { padding:18px 17px 55px; } .fighter-hero { min-height:270px; gap:10px; } .fighter-profile-art { flex-basis:145px; } .fighter-profile-art>span { font-size:110px; } .fighter-profile-info { padding:22px 12px 22px 0; } .fighter-profile-info h1 { font-size:43px; } .fighter-profile-info>p { font-size:11px; } .profile-stats { gap:14px; margin-top:18px; } .profile-stats b { font-size:24px; } .profile-stats span { font-size:8px; } .profile-actions { position:absolute; left:15px; bottom:12px; right:15px; padding:0; flex-direction:row; justify-content:end; } .profile-actions button { min-height:38px; padding:9px 10px; font-size:9px; } .fighter-hero { padding-bottom:48px; } .combos-layout { display:block; } .category-sidebar { display:flex; overflow-x:auto; border:none; background:transparent; padding:0 0 14px; gap:4px; margin-bottom:12px; } .sidebar-heading,.sidebar-tip { display:none; } .sidebar-item { width:auto; flex:0 0 auto; gap:9px; padding:8px 12px; border:1px solid #503c60; border-left:1px solid #503c60; min-height:37px; background:#251c35; } .sidebar-item--active { border-color:#c34ace; background:#59296b; } .combos-list-heading h2 { font-size:31px; } .settings-page { padding:40px 18px 65px; } .settings-grid { grid-template-columns:1fr; } .settings-card { min-height:210px; } .editor-overlay { padding:0; } .editor-panel { width:100%; height:100dvh; } .editor-content { display:flex; flex-direction:column; overflow-y:auto; } .editor-left,.editor-right { overflow:visible; } .editor-right { border-left:none; border-top:1px solid #503260; } .editor-header { padding:16px 19px; } .command-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .command-picker { min-height:105px; } }
+ @media (max-width:440px) { .hero { min-height:590px; } .hero-copy { padding:55px 18px; } .hero h1 { font-size:clamp(48px,12vw,58px); } .hero-description { font-size:12px; } .hero-actions { align-items:stretch; gap:9px; } .hero-actions a { padding:10px; font-size:9px; } .hero-mini-stat { gap:11px; } .hero-mini-stat small { font-size:8px; } .section-bar h2 { font-size:36px; } .roster-count { display:none; } .fighter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .fighter-art-zone { height:160px; } .fighter-card-title { font-size:22px; } .fighter-profile-art { flex-basis:110px; } .fighter-profile-info h1 { font-size:36px; } .fighter-profile-info>p { font-size:10px; } .profile-stats { gap:10px; } .profile-stats span { font-size:7px; } .profile-actions { justify-content:stretch; } .profile-actions button { flex:1; font-size:8px; gap:5px; white-space:normal; } .combos-list-heading .primary-button { font-size:9px; padding:10px; min-height:40px; } .combo-filters,.combo-search { width:100%; max-width:none; } .combo-card-head { gap:8px; padding:10px 7px; } .combo-actions { gap:0; } .icon-button { min-width:27px; } .combo-heading h3 { font-size:13px; } .combo-card-body { margin:0 8px; padding:10px 6px; } .command-icon { width:29px; height:30px; } .command-icon--motion { width:90px; } .command-icon--separator { width:20px; } .command-icon--system { width:50px; } .command-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .editor-left,.editor-right { padding:17px 13px 25px; } .editor-header h2 { font-size:28px; } .step-toolbar>span { max-width:155px; line-height:1.5; } }
+ @media (prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.001ms!important; transition-duration:.001ms!important; scroll-behavior:auto!important; } }
+ 

@@ -1,0 +1,275 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 7f0b362..02f80e1 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
+ import { BookOpen, UserRound, Settings2, X, AlertTriangle, Star } from 'lucide-react';
+ import { useCollection } from './hooks/useCollection';
+ import { HomePage } from './pages/HomePage';
++import { FavoritesPage } from './pages/FavoritesPage';
+ import { FighterPage } from './pages/FighterPage';
+ import { SettingsPage } from './pages/SettingsPage';
+ 
+@@ -14,7 +15,7 @@ export default function App() {
+       <div className="header-status"><span className="header-status-dot"/> LOCAL MODE <span className="status-version">/ v0.1</span></div>
+     </div></header>
+     {warning && <div role="alert" className="warning-banner"><AlertTriangle size={17}/><span>{warning}</span><button onClick={dismissWarning} aria-label="Fechar aviso"><X size={18}/></button></div>}
+-    <Routes><Route path="/" element={<HomePage/>}/><Route path="/mains" element={<HomePage mainsOnly/>}/><Route path="/fighter/:characterId" element={<FighterPage/>}/><Route path="/settings" element={<SettingsPage/>}/><Route path="*" element={<HomePage/>}/></Routes>
++    <Routes><Route path="/" element={<HomePage/>}/><Route path="/mains" element={<FavoritesPage/>}/><Route path="/fighter/:characterId" element={<FighterPage/>}/><Route path="/settings" element={<SettingsPage/>}/><Route path="*" element={<HomePage/>}/></Routes>
+     <footer className="site-footer"><div className="footer-inner"><div className="footer-brand"><Star size={17}/> BUILT FOR THE GRIND. <span>MADE FOR THE FIGHT.</span></div><div className="footer-links"><span><BookOpen size={14}/> FAN PROJECT / NÃO OFICIAL</span><span>SEM AFILIAÇÃO COM A CAPCOM</span></div></div></footer>
+   </div>;
+ }
+diff --git a/src/pages/FavoritesPage.tsx b/src/pages/FavoritesPage.tsx
+new file mode 100644
+index 0000000..e3ebc70
+--- /dev/null
++++ b/src/pages/FavoritesPage.tsx
+@@ -0,0 +1,109 @@
++import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
++import { ArrowLeft, ArrowRight, ArrowUpRight, Search, Star, UserRound, X } from 'lucide-react';
++import { Link } from 'react-router-dom';
++import { FighterArtwork } from '../components/FighterArtwork';
++import { fighters } from '../data/characters';
++import { useCollection } from '../hooks/useCollection';
++import type { Fighter } from '../types';
++
++const GRID_GAP = 12;
++
++/** Fit a complete number of portrait cards in the available viewport, without a page scrollbar. */
++export function calculateFavoritesLayout(width: number, height: number) {
++  const columns = width >= 1200 ? 6 : width >= 1000 ? 5 : width >= 760 ? 4 : width >= 520 ? 3 : width >= 310 ? 2 : 1;
++  const cardWidth = (Math.max(0, width) - GRID_GAP * (columns - 1)) / columns;
++  const desiredHeight = Math.min(260, Math.max(185, Math.round(cardWidth * 1.18)));
++  const rows = Math.max(1, Math.floor((Math.max(0, height) + GRID_GAP) / (desiredHeight + GRID_GAP)));
++  const cardHeight = Math.max(0, Math.min(desiredHeight, Math.floor((height - GRID_GAP * (rows - 1)) / rows)));
++  return { columns, rows, cardHeight, perPage: columns * rows };
++}
++
++function FavoriteCard({ fighter, number }: { fighter: Fighter; number: number }) {
++  const { data, toggleMain } = useCollection();
++  const combos = data.combos.filter((combo) => combo.characterId === fighter.id).length;
++  return <article className="favorite-card" style={{ '--fighter-color': fighter.hue } as CSSProperties}>
++    <Link to={`/fighter/${fighter.id}`} className="favorite-card-link" aria-label={`Abrir combos de ${fighter.name}`}>
++      <FighterArtwork fighter={fighter} variant="portrait" />
++      <span className="favorite-card-shade" aria-hidden="true"/>
++      <span className="favorite-card-index">{String(number).padStart(2, '0')} / FIGHTER</span>
++      <span className="favorite-card-open" aria-hidden="true"><ArrowUpRight size={19}/></span>
++    </Link>
++    <div className="favorite-card-details">
++      <div className="favorite-card-text"><h2>{fighter.name}</h2><p>{combos} {combos === 1 ? 'COMBO SALVO' : 'COMBOS SALVOS'}</p></div>
++      <button type="button" onClick={() => toggleMain(fighter.id)} className="favorite-card-remove" aria-label={`Remover ${fighter.name} dos favoritos, preservando seus combos`} title="Remover dos favoritos (combos preservados)"><Star size={17} fill="currentColor"/></button>
++    </div>
++  </article>;
++}
++
++export function FavoritesPage() {
++  const { data } = useCollection();
++  const [query, setQuery] = useState('');
++  const [requestedPage, setRequestedPage] = useState(1);
++  const gridRef = useRef<HTMLDivElement>(null);
++  const [size, setSize] = useState({ width: 1200, height: 320 });
++
++  useEffect(() => {
++    const element = gridRef.current;
++    if (!element) return;
++    const measure = () => setSize((previous) => {
++      const width = Math.floor(element.clientWidth);
++      const height = Math.floor(element.clientHeight);
++      return previous.width === width && previous.height === height ? previous : { width, height };
++    });
++    measure();
++    const observer = new ResizeObserver(measure);
++    observer.observe(element);
++    return () => observer.disconnect();
++  }, []);
++
++  const layout = calculateFavoritesLayout(size.width, size.height);
++  // Only selected favorites, in the order in which they were added.
++  const favorites = useMemo(() => data.mains
++    .map((id) => fighters.find((fighter) => fighter.id === id))
++    .filter((fighter): fighter is Fighter => Boolean(fighter)), [data.mains]);
++  const filtered = useMemo(() => favorites.filter((fighter) =>
++    fighter.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), [favorites, query]);
++  const pageCount = Math.max(1, Math.ceil(filtered.length / layout.perPage));
++  const page = Math.min(requestedPage, pageCount);
++  const start = (page - 1) * layout.perPage;
++  const visible = filtered.slice(start, start + layout.perPage);
++  const layoutVars = { '--favorites-columns': layout.columns, '--favorites-card-height': `${layout.cardHeight}px` } as CSSProperties;
++
++  function changeQuery(value: string) { setQuery(value); setRequestedPage(1); }
++
++  return <main className="favorites-page" aria-label="Meus favoritos">
++    <header className="favorites-heading">
++      <div>
++        <span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span>
++        <h1>MEUS <em>FAVORITOS</em><span className="heading-dot">.</span></h1>
++        <p>Sua seleção pessoal de lutadores. Abra um retrato para consultar seus combos.</p>
++      </div>
++      <div className="favorites-total"><strong>{String(favorites.length).padStart(2, '0')}</strong><span>FIGHTERS<br/>FAVORITOS</span></div>
++    </header>
++
++    <div className="favorites-toolbar">
++      <span className="favorites-count"><Star size={14} fill="currentColor"/> {filtered.length} {filtered.length === 1 ? 'PERSONAGEM' : 'PERSONAGENS'} NA COLEÇÃO</span>
++      <label className="search-box favorites-search"><Search size={17}/><input value={query} onChange={(event) => changeQuery(event.target.value)} placeholder="Buscar favorito..." aria-label="Buscar nos meus favoritos"/>{query && <button type="button" onClick={() => changeQuery('')} aria-label="Limpar busca"><X size={15}/></button>}</label>
++    </div>
++
++    <div ref={gridRef} className="favorites-grid-viewport">
++      {visible.length > 0 ? <div className="favorites-grid" style={layoutVars}>
++        {visible.map((fighter, index) => <FavoriteCard key={fighter.id} fighter={fighter} number={start + index + 1}/>)}
++      </div> : <div className="favorites-empty">
++        <div className="favorites-empty-icon">{query ? <Search size={34}/> : <Star size={34}/>}</div>
++        <h2>{query ? 'NENHUM FAVORITO ENCONTRADO' : 'SUA LISTA DE FAVORITOS ESTÁ VAZIA'}</h2>
++        <p>{query ? 'Tente buscar outro nome ou limpe o campo de pesquisa.' : 'Escolha seus lutadores na tela de Personagens e adicione-os aos favoritos.'}</p>
++        {query ? <button type="button" className="secondary-button" onClick={() => changeQuery('')}>LIMPAR BUSCA</button> : <Link to="/" className="primary-button"><UserRound size={16}/> ESCOLHER PERSONAGENS</Link>}
++      </div>}
++    </div>
++
++    <nav className="favorites-pagination" aria-label="Paginação dos favoritos">
++      <span className="favorites-range">{filtered.length ? `${start + 1}–${start + visible.length} DE ${filtered.length}` : '0 FAVORITOS'}</span>
++      <div className="favorites-page-controls">
++        <button type="button" disabled={page <= 1} onClick={() => setRequestedPage(page - 1)} aria-label="Página anterior"><ArrowLeft size={17}/></button>
++        <span aria-live="polite">PÁGINA <strong>{String(page).padStart(2,'0')}</strong> / {String(pageCount).padStart(2,'0')}</span>
++        <button type="button" disabled={page >= pageCount} onClick={() => setRequestedPage(page + 1)} aria-label="Próxima página"><ArrowRight size={17}/></button>
++      </div>
++    </nav>
++  </main>;
++}
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 1984788..cf99375 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,10 +1,9 @@
+ import { useMemo, useState } from 'react';
+-import { ArrowRight, Check, Gamepad2, Plus, Search, SlidersHorizontal, Sparkles, Star } from 'lucide-react';
++import { ArrowRight, Check, Gamepad2, Plus, Search, Star } from 'lucide-react';
+ import { Link } from 'react-router-dom';
+ import type { CSSProperties } from 'react';
+ import { fighters } from '../data/characters';
+ import { useCollection } from '../hooks/useCollection';
+-import { FighterCard } from '../components/FighterCard';
+ import { FighterArtwork } from '../components/FighterArtwork';
+ 
+ // Match the order in the character-select reference image without changing saved IDs.
+@@ -15,19 +14,16 @@ const referenceRosterOrder = [
+ ];
+ const homeRoster = [...fighters].sort((a, b) => referenceRosterOrder.indexOf(a.id) - referenceRosterOrder.indexOf(b.id));
+ 
+-/** The Home and Mains views share data but have deliberately different layouts. */
+-export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
++/** Character Select. The /mains collection has its own page and pagination. */
++export function HomePage() {
+   const { data, isMain, toggleMain } = useCollection();
+   const [query, setQuery] = useState('');
+-  const [filter, setFilter] = useState<'all' | 'mains'>(mainsOnly ? 'mains' : 'all');
+   const [selectedId, setSelectedId] = useState(fighters[0].id);
+   const selected = fighters.find((fighter) => fighter.id === selectedId) ?? fighters[0];
+ 
+-  const shown = useMemo(() => (mainsOnly ? fighters : homeRoster).filter((fighter) =>
+-    (filter === 'all' || data.mains.includes(fighter.id)) &&
+-    fighter.name.toLowerCase().includes(query.trim().toLowerCase())), [data.mains, filter, query, mainsOnly]);
++  const shown = useMemo(() => homeRoster.filter((fighter) =>
++    fighter.name.toLowerCase().includes(query.trim().toLowerCase())), [query]);
+ 
+-  if (!mainsOnly) {
+     const isSelectedMain = isMain(selected.id);
+     const selectedCombos = data.combos.filter((combo) => combo.characterId === selected.id).length;
+ 
+@@ -97,15 +93,4 @@ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+         </aside>
+       </section>
+     </main>;
+-  }
+-
+-  // Keep the existing favorites page and its search / filter / cards intact.
+-  return <main>
+-    <section id="fighters" className="fighters-section">
+-      <div className="section-bar"><div><span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span><h2>MEUS <em>FAVORITOS</em><span className="heading-dot">.</span></h2><p>Seus lutadores favoritos e todos os combos que você está treinando.</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
+-      <div className="fighter-tools"><div className="filter-pills"><button type="button" className={filter === 'all' ? 'filter-active' : ''} onClick={() => setFilter('all')}><SlidersHorizontal size={15}/> TODOS OS FIGHTERS</button><button type="button" className={filter === 'mains' ? 'filter-active' : ''} onClick={() => setFilter('mains')}><Star size={15}/> MEUS FAVORITOS <span className="count-pill">{data.mains.length}</span></button></div><label className="search-box"><Search size={18}/><input placeholder="Buscar lutador..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar lutador"/><kbd>⌕</kbd></label></div>
+-      {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Escolha personagens na página Personagens e adicione-os aos favoritos.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
+-      <div className="roster-note"><Sparkles size={14}/> Retratos em public/assets/portrait characters e artes grandes em public/assets/display characters.</div>
+-    </section>
+-  </main>;
+ }
+diff --git a/src/styles.css b/src/styles.css
+index 3284a8a..14b4844 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -563,3 +563,78 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+   .site-header .logo-copy strong { font-size:17px; }
+   .site-header .main-nav a { padding:0 5px; }
+ }
++
++/* =============================================================
++   PATCH 05 — FAVORITES: PORTRAIT-ONLY, VIEWPORT-SIZED, PAGINATED
++   Each favorite opens its existing /fighter/:id combo library.
++   On desktop, the number of rows changes with the available height.
++   ============================================================= */
++.favorites-page {
++  width:100%; max-width:1480px; margin:0 auto; min-width:0;
++  min-height:0; display:flex; flex-direction:column;
++  padding:clamp(20px,3.3vh,36px) clamp(18px,3.6vw,66px) 16px;
++}
++.favorites-heading { display:flex; align-items:end; justify-content:space-between; gap:22px; flex:0 0 auto; }
++.favorites-heading h1 { font:900 clamp(33px,3.1vw,54px)/1 Impact,'Arial Black',sans-serif; margin:7px 0 10px; }
++.favorites-heading h1 em { font-style:normal; color:#d250e1; }
++.favorites-heading p { color:#aba0ba; font-size:12px; line-height:1.4; margin:0; }
++.favorites-total { display:flex; align-items:center; gap:11px; padding-bottom:5px; flex:0 0 auto; }
++.favorites-total strong { font:50px/1 Impact,'Arial Black',sans-serif; }
++.favorites-total span { padding-left:11px; border-left:1px solid #5a436b; color:#a798bc; font-size:9px; font-weight:900; letter-spacing:1px; }
++.favorites-toolbar { display:flex; align-items:center; justify-content:space-between; gap:15px; margin:20px 0 14px; padding-bottom:13px; border-bottom:1px solid #4a365a; flex:0 0 auto; }
++.favorites-count { display:flex; align-items:center; gap:8px; color:#dc97e6; font-weight:900; font-size:10px; letter-spacing:1.1px; }
++.favorites-search { height:38px; max-width:270px; }
++.favorites-search button { display:grid; place-items:center; border:0; background:none; color:#d0a7df; padding:4px; }
++.favorites-grid-viewport { width:100%; min-height:0; flex:1 1 auto; overflow:hidden; }
++.favorites-grid { display:grid; grid-template-columns:repeat(var(--favorites-columns,6),minmax(0,1fr)); grid-auto-rows:var(--favorites-card-height,250px); align-content:start; gap:12px; }
++.favorite-card { position:relative; display:flex; flex-direction:column; overflow:hidden; min-height:0; min-width:0; background:linear-gradient(140deg,#2d223b,#191426); border:1px solid #5a3a69; transition:border-color .2s; }
++.favorite-card:hover,.favorite-card:focus-within { border-color:#d465de; }
++.favorite-card-link { position:relative; display:block; min-height:0; flex:1 1 auto; overflow:hidden; background:radial-gradient(ellipse at 52% 66%,color-mix(in srgb,var(--fighter-color) 45%,transparent),transparent 80%),#271d39; }
++.favorite-card-link .fighter-artwork--portrait { position:absolute; inset:0; }
++.favorite-card-link .fighter-artwork--portrait img { width:100%; height:100%; object-fit:cover; }
++.favorite-card-link:hover .fighter-artwork--portrait img { filter:grayscale(0) contrast(1.05) saturate(1.18); }
++.favorite-card-shade { position:absolute; pointer-events:none; inset:0; background:linear-gradient(180deg,#130a2557,transparent 35%,#140d258c); }
++.favorite-card-index { position:absolute; left:9px; top:9px; font-size:8px; letter-spacing:1px; font-weight:900; color:white; text-shadow:0 1px 8px #06020b; }
++.favorite-card-open { position:absolute; bottom:10px; right:10px; display:grid; place-items:center; width:27px; height:27px; color:#2c173d; background:#f9eaff; opacity:0; transition:opacity .15s; }
++.favorite-card-link:hover .favorite-card-open,.favorite-card-link:focus-visible .favorite-card-open { opacity:1; }
++.favorite-card-details { display:flex; flex:0 0 62px; align-items:center; justify-content:space-between; gap:6px; padding:8px 10px; border-top:1px solid #6b4573; background:#20162f; }
++.favorite-card-text { min-width:0; }
++.favorite-card-text h2 { font:900 clamp(18px,1.6vw,24px)/1 Impact,'Arial Black',sans-serif; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
++.favorite-card-text p { color:#b295c7; margin:5px 0 0; font-size:8px; letter-spacing:.45px; font-weight:900; }
++.favorite-card-remove { flex:0 0 34px; height:34px; display:grid; place-items:center; border:1px solid #b35dc8; background:#543067; color:#f2a7ef; }
++.favorite-card-remove:hover { border-color:#ed73e6; background:#7d367f; color:white; }
++.favorites-empty { display:flex; width:100%; height:100%; min-height:0; flex-direction:column; align-items:center; justify-content:center; gap:15px; border:1px dashed #674279; background:linear-gradient(135deg,#1d172d,#211530); text-align:center; padding:18px; }
++.favorites-empty-icon { color:#cd63df; }
++.favorites-empty h2 { font:900 clamp(22px,2.4vw,29px)/1.2 Impact,sans-serif; }
++.favorites-empty p { color:#b1a3c1; font-size:12px; line-height:1.5; max-width:420px; }
++.favorites-empty .primary-button,.favorites-empty .secondary-button { margin-top:2px; }
++.favorites-pagination { display:flex; align-items:center; justify-content:space-between; gap:15px; min-height:53px; flex:0 0 53px; border-top:1px solid #4b355d; margin-top:12px; }
++.favorites-range { color:#aa98bc; font-size:10px; font-weight:900; letter-spacing:1px; }
++.favorites-page-controls { display:flex; align-items:center; gap:14px; }
++.favorites-page-controls>span { color:#a89bbd; font-size:10px; letter-spacing:1.1px; font-weight:900; white-space:nowrap; }
++.favorites-page-controls>span strong { color:#f3d7f7; }
++.favorites-page-controls button { display:grid; place-items:center; width:35px; height:35px; border:1px solid #705080; background:#342344; color:#f7e3fd; }
++.favorites-page-controls button:hover:not(:disabled) { background:#633479; }
++.favorites-page-controls button:disabled { opacity:.25; }
++@media (min-height:560px) {
++  .app-shell:has(> .favorites-page) { height:100dvh; min-height:0; overflow:hidden; }
++  .app-shell:has(> .favorites-page) .site-footer { display:none; }
++  .app-shell:has(> .favorites-page) > .favorites-page { flex:1; min-height:0; overflow:hidden; }
++}
++@media (max-height:559px) {
++  .favorites-page { padding:20px 14px 18px; min-height:calc(100dvh - 65px); }
++  .favorites-grid-viewport { flex:0 0 auto; min-height:240px; height:clamp(240px,50dvh,450px); }
++  .favorites-pagination { margin-top:10px; }
++}
++@media (max-width:520px) {
++  .favorites-page { padding:16px 14px 12px; }
++  .favorites-heading h1 { font-size:34px; }
++  .favorites-heading p { font-size:11px; max-width:300px; }
++  .favorites-total { display:none; }
++  .favorites-toolbar { margin-top:14px; gap:9px; flex-wrap:wrap; }
++  .favorites-search { max-width:none; width:100%; }
++  .favorite-card-details { padding:8px 7px; }
++  .favorite-card-text h2 { font-size:18px; }
++  .favorite-card-remove { flex-basis:30px; height:30px; }
++}
++@media (prefers-reduced-motion:reduce) { .favorite-card,.favorite-card-open { transition:none; } }

@@ -1,0 +1,322 @@
+diff --git a/README.md b/README.md
+index 5554217..b20232b 100644
+--- a/README.md
++++ b/README.md
+@@ -49,20 +49,20 @@ git commit -m "feat: MVP do SF6 Combo Builder"
+ 
+ ## Atualização: Character Select da Home
+ 
+-A **Home** mostra os 32 personagens em um painel de retratos recortados (preto e branco) com um palco de prévia à direita. Clique em um retrato para selecionar; clique **Abrir combos** para acessar a página daquele personagem. O botão **Adicionar aos Mains** é separado da seleção. O antigo *Featured Fighter* foi removido, assim como a segunda grade duplicada de personagens abaixo da Home. A página **Meus Mains** continua disponível.
++A **Home** mostra os 32 personagens em um painel de retratos recortados (preto e branco) com um palco de prévia à direita. Clique em um retrato para selecionar; clique **Abrir combos** para acessar a página daquele personagem. O botão **Adicionar aos Favoritos** é separado da seleção. O antigo *Featured Fighter* foi removido, assim como a segunda grade duplicada de personagens abaixo da Home. A página **Meus Favoritos** continua disponível.
+ 
+ ### SVGs locais (nenhum download automático)
+ 
+-Coloque seus 32 SVGs dentro de `public/assets/` (aceita subpastas, por exemplo `public/assets/characters/Ryu.svg`). Ao executar `npm run dev` ou `npm run build`, o comando `npm run artwork` procura os SVGs e gera `src/data/fighterArt.generated.ts` com seus caminhos reais. O identificador é encontrado pelo nome do arquivo (aceita Ryu.svg, RYU.svg, E.Honda.svg, Chun-Li.svg, C_Viper.svg, Mai_SF6.svg etc.). Reinicie o Vite após adicionar ou renomear imagens.
++Guarde os retratos em `public/assets/portrait characters/` e as artes grandes em `public/assets/display characters/`. Ao executar `npm run dev` ou `npm run build`, o comando `npm run artwork` gera as listas de URLs de ambos os tipos separadamente. O nome do arquivo identifica o lutador (aceita `Ryu.svg`, `E.Honda.svg`, `Chun-Li.svg`, `C_Viper.svg` etc.). Reinicie o Vite após alterar arquivos.
+ 
+-Se seus arquivos tiverem nomes completamente diferentes, edite o mapa `fighterArtworkOverrides` em `src/data/fighterArtwork.ts`; exemplo: `'ryu': '/assets/personagens/001.svg'`. Se quiser ajustar o enquadramento do rosto, edite `portraitFraming` nesse mesmo arquivo; exemplo: `'ryu': { x: 50, y: 9, zoom: 1.8 }`. O painel usa `object-fit: cover` com zoom (foco na região superior) e a arte grande usa `contain` para não cortar o personagem.
++Se os nomes forem diferentes, ajuste `fighterPortraitOverrides` e `fighterDisplayOverrides` em `src/data/fighterArtwork.ts`, conforme a seção Patch 04 abaixo. Para ajustar o rosto sem modificar o SVG, use `portraitFraming` (por exemplo `'ryu': { x: 50, y: 18, zoom: 1.15 }`). A arte grande usa `object-fit: contain`.
+ 
+-**Importante:** os 32 SVGs não estão dentro do ZIP do MVP anterior; o patch não inclui nem substitui as imagens que você já adicionou localmente. Personagens sem SVG reconhecido recebem iniciais provisórias (E. Honda conserva a referência PNG). As imagens serão carregadas após a geração do mapa.
++**Importante:** os SVGs do usuário não estão incluídos neste patch, nem são modificados por ele. O app exibirá iniciais provisórias onde faltar um SVG; o display de E. Honda conserva a imagem de referência caso falte seu SVG.
+ 
+ ## Atualização: página do lutador em tela única (Playbook V2)
+ 
+ - Em desktops com **largura a partir de 1060 px** e **altura a partir de 640 px**, a página do lutador ocupa a área visível, sem barra de rolagem da página; o rodapé é omitido nessa página para liberar espaço. Em telas menores, o layout empilha e a página pode rolar normalmente por legibilidade.
+-- O SVG do lutador é reutilizado em destaque **à esquerda**, usando a mesma resolução de `public/assets/` da Home (`FighterArtwork` e `fighterArtwork.ts`). Se não houver SVG reconhecido, o fallback existente é mantido.
++- O SVG do lutador é reutilizado em destaque **à esquerda**, usando somente as artes de `public/assets/display characters/` (`FighterArtwork` e `fighterArtwork.ts`). Se não houver SVG reconhecido, o fallback existente é mantido.
+ - Categorias viraram um **select compacto**; a busca e filtros por etiqueta permanecem na barra. Por padrão são mostrados todos os combos, divididos em páginas.
+ - A quantidade de cards por página é **calculada pela altura real renderizada** em cada viewport usando `ResizeObserver`; mudar filtros, dimensões da janela ou editar um combo redistribui os cards. Sem carregamento remoto.
+ - Cards com muitos comandos exibem uma **prévia compacta** e o botão **VER SEQUÊNCIA COMPLETA** abre um diálogo para consultar todos os comandos e notas. O diálogo pode ter rolagem interna caso a sequência seja maior que a tela — nada é descartado.
+@@ -70,7 +70,7 @@ Se seus arquivos tiverem nomes completamente diferentes, edite o mapa `fighterAr
+ 
+ ## Como usar
+ 
+-1. Na Home, clique no **retrato** do lutador e depois em **Adicionar aos Mains**, caso queira salvá-lo na coleção.
++1. Na Home, clique no **retrato** do lutador e depois em **Adicionar aos Favoritos**, caso queira salvá-lo na coleção.
+ 2. Clique em **Abrir combos** para acessar a página do lutador.
+ 3. Clique **Criar combo**. Escolha a categoria e adicione comandos nas abas.
+ 4. Clique no comando da prévia para selecioná-lo. Use os botões de reordenação e remoção.
+@@ -91,12 +91,15 @@ src/
+ public/assets/
+   commands/     # sprites recortados dos PNGs fornecidos
+   reference/    # arquivos originais e referência redimensionada
++  portrait characters/ # SVGs do painel de seleção (adicionados pelo usuário)
++  display characters/  # SVGs de exibição grande (adicionados pelo usuário)
++  sf6-logo.svg        # logo (adicionada pelo usuário)
+ ```
+ 
+ ## Assets, convenções e limitações
+ 
+ - `Soco.png`, `Chute.png`, `Setas.png`, `Comandos.png`, `Divisor.png` foram divididos em imagens individuais sem redesenhá-los. O design é inspirado no `Character Combos.png` fornecido.
+-- No ZIP original, apenas **E. Honda** possuía arte. Esta atualização reconhece os SVGs que você já tem em `public/assets/`, sem baixar imagens. Se faltar algum arquivo ou o nome não corresponder, o personagem recebe um placeholder.
++- No ZIP original, apenas **E. Honda** possuía arte. Esta atualização reconhece os SVGs nas pastas `portrait characters` e `display characters`, sem baixar imagens. Se faltar algum arquivo ou o nome não corresponder, o personagem recebe um placeholder.
+ - A representação gráfica de frente/trás assume que o personagem olha para a direita. Ao inverter de lado no jogo, os comandos relativos mudam.
+ - Ícones para direções, QCF, QCB, DP e HCB vêm dos assets. HCF e DP invertido reutilizam o sprite espelhado. Double quarter-circle e charge usam notação tipográfica provisória. Comandos de sistema possuem marcadores textuais provisórios, pois não existem sprites específicos fornecidos.
+ - As abreviações OD e PP/KK são **atalhos visuais**, não uma verificação de moveset: não existe validação automática de quais movimentos são possíveis para cada lutador. O usuário monta e cataloga suas próprias sequências.
+@@ -111,3 +114,42 @@ Projeto **não oficial**, sem fins comerciais e sem afiliação com a Capcom. St
+ ### Inicialização opcional
+ 
+ No Windows, dê dois cliques em `START-WINDOWS.bat` (se o Node.js já estiver instalado). No Ubuntu/Linux, execute `./start-linux.sh` no terminal. Os scripts só instalam as dependências quando a pasta `node_modules` ainda não existe e iniciam o Vite.
++
++## Patch 04 — SVGs por contexto e logo ampliada
++
++Os assets agora são organizados em duas pastas **separadas**:
++
++```text
++public/
++  assets/
++    sf6-logo.svg
++    portrait characters/
++      Ryu.svg
++      Chun-Li.svg
++      ...
++    display characters/
++      Ryu.svg
++      Chun-Li.svg
++      ...
++```
++
++- **`portrait characters`**: somente imagens do painel de seleção da Home (enquadramento do rosto).
++- **`display characters`**: somente artes grandes do lutador selecionado na Home e da página de combos.
++- **`sf6-logo.svg`**: permanece em `public/assets/`; foi ampliada no cabeçalho e também é o favicon.
++
++Os arquivos de cada personagem podem ter o mesmo nome nas duas pastas. `npm run artwork` gera duas listas distintas e transforma espaços em `%20` nas URLs. O projeto procura os personagens por seus IDs/nomes, por exemplo `Ryu.svg`, `E.Honda.svg`, `C_Viper_SF6.svg`. Não copia nem altera imagens originais.
++
++Se a nomenclatura não for reconhecida, indique um caminho manual em `src/data/fighterArtwork.ts` através de `fighterPortraitOverrides` ou `fighterDisplayOverrides`:
++
++```ts
++export const fighterPortraitOverrides: Record<string, string> = {
++  'ryu': '/assets/portrait%20characters/Ryu.svg',
++};
++export const fighterDisplayOverrides: Record<string, string> = {
++  'ryu': '/assets/display%20characters/Ryu.svg',
++};
++```
++
++Em casos específicos, ajuste o zoom da imagem no painel pelo mapa `portraitFraming`, que não interfere no display. Para atualizar depois de mover/renomear SVGs, reinicie `npm run dev` (ou execute `npm run artwork`).
++
++Se faltarem artes em alguma pasta, o painel mostrará as iniciais do lutador; a arte grande mostrará iniciais, exceto E. Honda, para quem a imagem original permanece como fallback. **Este patch não inclui seus 64 SVGs**, pois os arquivos estão somente na sua cópia local do projeto.
+diff --git a/scripts/generate-fighter-art.mjs b/scripts/generate-fighter-art.mjs
+index b6cd8b7..1620c73 100644
+--- a/scripts/generate-fighter-art.mjs
++++ b/scripts/generate-fighter-art.mjs
+@@ -1,39 +1,50 @@
+ /**
+- * Discovers the user's own SVG fighter illustrations under public/assets.
+- * Runs automatically before `npm run dev` and `npm run build`.
+- * No images are downloaded or modified by this script.
++ * Discovers local fighter SVGs by their intended use:
++ * - public/assets/portrait characters/: small Character Select portraits
++ * - public/assets/display characters/: large selected / fighter-page artwork
++ * The folders are deliberately not interchangeable. Images are never downloaded.
+  */
+ import { readdir, mkdir, writeFile } from 'node:fs/promises';
+ import { join, relative, resolve, sep } from 'node:path';
+ 
+ const root = resolve('public/assets');
+ const output = resolve('src/data/fighterArt.generated.ts');
+-const found = [];
+ 
+-async function visit(folder) {
+-  let items;
+-  try { items = await readdir(folder, { withFileTypes: true }); }
+-  catch (error) {
+-    if (error.code === 'ENOENT') return;
+-    throw error;
+-  }
+-  for (const item of items) {
+-    const fullPath = join(folder, item.name);
+-    if (item.isDirectory()) await visit(fullPath);
+-    else if (item.isFile() && item.name.toLowerCase().endsWith('.svg')) {
+-      // URLs are rooted at /assets: do not put /public in the browser path.
+-      const url = '/assets/' + relative(root, fullPath)
+-        .split(sep).map(encodeURIComponent).join('/');
+-      found.push(url);
++async function discover(folderName) {
++  const base = join(root, folderName);
++  const urls = [];
++  async function visit(folder) {
++    let items;
++    try { items = await readdir(folder, { withFileTypes: true }); }
++    catch (error) {
++      if (error.code === 'ENOENT') return;
++      throw error;
++    }
++    for (const item of items) {
++      const fullPath = join(folder, item.name);
++      if (item.isDirectory()) await visit(fullPath);
++      else if (item.isFile() && item.name.toLowerCase().endsWith('.svg')) {
++        // Encode spaces and special characters, but keep directory separators.
++        urls.push('/assets/' + relative(root, fullPath)
++          .split(sep).map(encodeURIComponent).join('/'));
++      }
+     }
+   }
++  await visit(base);
++  return urls.sort((a, b) => a.localeCompare(b));
+ }
+ 
+-await visit(root);
+-found.sort((a, b) => a.localeCompare(b));
++const [portraits, displays] = await Promise.all([
++  discover('portrait characters'),
++  discover('display characters'),
++]);
+ await mkdir(resolve('src/data'), { recursive: true });
+ await writeFile(output,
+-  '// AUTO-GENERATED — do not hand-edit. Run `npm run artwork` to refresh.\n' +
+-  'export const availableFighterSvgs: readonly string[] = ' + JSON.stringify(found, null, 2) + ';\n',
++  '// AUTO-GENERATED — do not hand-edit. Run `npm run artwork` after moving SVGs.\n' +
++  'export const availableFighterPortraitSvgs: readonly string[] = ' + JSON.stringify(portraits, null, 2) + ';\n' +
++  'export const availableFighterDisplaySvgs: readonly string[] = ' + JSON.stringify(displays, null, 2) + ';\n',
+   'utf8');
+-console.log(`[character art] ${found.length} SVG(s) found under public/assets`);
++console.log(`[fighter artwork] ${portraits.length} portrait SVG(s), ${displays.length} display SVG(s).`);
++if (!portraits.length || !displays.length) {
++  console.warn('[fighter artwork] Confira as pastas public/assets/portrait characters e public/assets/display characters.');
++}
+diff --git a/src/components/FighterArtwork.tsx b/src/components/FighterArtwork.tsx
+index 3779f5e..f1c3440 100644
+--- a/src/components/FighterArtwork.tsx
++++ b/src/components/FighterArtwork.tsx
+@@ -8,19 +8,25 @@ interface Props {
+   variant: 'portrait' | 'stage';
+ }
+ 
+-export function FighterArtwork({ fighter, variant }: Props) {
++/** Its key includes the URL so a failed image never hides the next selected fighter. */
++function FighterArtImage({ url, fighter, variant }: { url: string; fighter: Fighter; variant: Props['variant'] }) {
+   const [failed, setFailed] = useState(false);
+-  const url = getFighterArtwork(fighter);
++  if (failed) return <span className="fighter-artwork-fallback" aria-hidden="true">{fighter.abbreviation}</span>;
++  return <img src={url} alt={variant === 'stage' ? `Arte de ${fighter.name}` : ''}
++    loading={variant === 'portrait' ? 'lazy' : 'eager'}
++    decoding="async" onError={() => setFailed(true)} />;
++}
++
++export function FighterArtwork({ fighter, variant }: Props) {
++  const url = getFighterArtwork(fighter, variant);
+   const framing = portraitFraming[fighter.id];
+-  const style = framing ? {
++  const style = variant === 'portrait' && framing ? {
+     '--face-x': `${framing.x}%`, '--face-y': `${framing.y}%`, '--face-zoom': framing.zoom,
+   } as CSSProperties : undefined;
+ 
+   return <div className={`fighter-artwork fighter-artwork--${variant}`} style={style}>
+-    {url && !failed ? (
+-      <img src={url} alt={variant === 'stage' ? `Arte de ${fighter.name}` : ''}
+-        loading={variant === 'portrait' ? 'lazy' : 'eager'}
+-        decoding="async" onError={() => setFailed(true)} />
++    {url ? (
++      <FighterArtImage key={`${fighter.id}:${variant}:${url}`} url={url} fighter={fighter} variant={variant}/>
+     ) : (
+       <span className="fighter-artwork-fallback" aria-hidden="true">{fighter.abbreviation}</span>
+     )}
+diff --git a/src/data/fighterArtwork.ts b/src/data/fighterArtwork.ts
+index c583738..e5863cd 100644
+--- a/src/data/fighterArtwork.ts
++++ b/src/data/fighterArtwork.ts
+@@ -1,13 +1,13 @@
+ import type { Fighter } from '../types';
+-import { availableFighterSvgs } from './fighterArt.generated';
++import { availableFighterPortraitSvgs, availableFighterDisplaySvgs } from './fighterArt.generated';
+ 
+-/** For file names that cannot be identified automatically, map a fighter ID to a public URL.
+- * Example: 'ryu': '/assets/my-folder/custom-filename.svg'
+- */
+-export const fighterArtworkOverrides: Record<string, string> = {};
++/** Only the small cards in Character Select use portrait SVGs. */
++export const fighterPortraitOverrides: Record<string, string> = {};
++/** Selected fighter and fighter detail pages use display SVGs. */
++export const fighterDisplayOverrides: Record<string, string> = {};
+ 
+-/** Fine-tune an individual fighter's face framing (percentage and zoom).
+- * Keep the CSS defaults for everyone else. E.g. 'ryu': { x: 48, y: 9, zoom: 1.85 }
++/** Optional adjustments for individual portrait SVGs (percent position / zoom).
++ * Example: 'ryu': { x: 50, y: 15, zoom: 1.25 }
+  */
+ export const portraitFraming: Record<string, { x: number; y: number; zoom: number }> = {};
+ 
+@@ -23,7 +23,7 @@ function filePart(url: string) {
+ 
+ function score(url: string, fighter: Fighter): number {
+   const stem = normalize(filePart(url));
+-  const reduced = stem.replace(/streetfighter6|streetfighter|sf6|character|portrait|profile|render|artwork|fighter|transparent|fullbody|cutout|official|thumb|image|art/g, '').replace(/[0-9]+$/, '');
++  const reduced = stem.replace(/streetfighter6|streetfighter|sf6|character|portrait|profile|display|render|artwork|fighter|transparent|fullbody|cutout|official|thumb|image|art|card|icon/g, '').replace(/[0-9]+$/, '');
+   const aliases = [fighter.id, fighter.name];
+   if (fighter.id === 'e-honda') aliases.push('Honda');
+   if (fighter.id === 'dee-jay') aliases.push('Deejay');
+@@ -37,23 +37,25 @@ function score(url: string, fighter: Fighter): number {
+     if (stem === key) best = Math.max(best, 100);
+     if (reduced === key) best = Math.max(best, 95);
+     if (stem === `${key}sf6` || stem === `sf6${key}`) best = Math.max(best, 94);
+-    if (stem.startsWith(`${key}portrait`) || stem.startsWith(`${key}render`) || stem.startsWith(`${key}character`) || stem.startsWith(`${key}art`)) best = Math.max(best, 90);
+-    if (stem.startsWith(`sf6${key}`) || stem.startsWith(`character${key}`) || stem.startsWith(`portrait${key}`) || stem.startsWith(`fighter${key}`)) best = Math.max(best, 88);
+-    if (parent === key && ['portrait', 'art', 'character', 'render', 'default', 'fighter'].includes(stem)) best = Math.max(best, 87);
++    if (stem.startsWith(`${key}portrait`) || stem.startsWith(`${key}display`) || stem.startsWith(`${key}render`) || stem.startsWith(`${key}character`) || stem.startsWith(`${key}art`)) best = Math.max(best, 90);
++    if (stem.startsWith(`sf6${key}`) || stem.startsWith(`character${key}`) || stem.startsWith(`portrait${key}`) || stem.startsWith(`display${key}`) || stem.startsWith(`fighter${key}`)) best = Math.max(best, 88);
++    if (parent === key && ['portrait', 'display', 'art', 'character', 'render', 'default', 'fighter'].includes(stem)) best = Math.max(best, 87);
+     if (stem.startsWith(key) && /^([0-9]|svg|thumb|icon|profile|image|full|cutout)/.test(stem.slice(key.length))) best = Math.max(best, 82);
+   }
+-  // Prefer the character-specific folders over unrelated site SVGs.
+-  if (/\/(characters|fighters|roster|portraits)\//i.test(url)) best += best ? 3 : 0;
+   return best;
+ }
+ 
+-export function getFighterArtwork(fighter: Fighter): string | null {
+-  if (fighterArtworkOverrides[fighter.id]) return fighterArtworkOverrides[fighter.id];
+-  const matches = availableFighterSvgs
++/** The two variants resolve exclusively from their own asset directory. */
++export function getFighterArtwork(fighter: Fighter, variant: 'portrait' | 'stage'): string | null {
++  const isPortrait = variant === 'portrait';
++  const override = (isPortrait ? fighterPortraitOverrides : fighterDisplayOverrides)[fighter.id];
++  if (override) return override;
++  const files = isPortrait ? availableFighterPortraitSvgs : availableFighterDisplaySvgs;
++  const matches = files
+     .map((url) => ({ url, relevance: score(url, fighter) }))
+     .filter(({ relevance }) => relevance > 0)
+     .sort((a, b) => b.relevance - a.relevance || a.url.length - b.url.length);
+   if (matches.length) return matches[0].url;
+-  // Keep the one supplied raster reference until a matching SVG is found.
+-  return fighter.isReferenceArt ? '/assets/honda-reference.png' : null;
++  // Use the original supplied E. Honda reference only for large displays.
++  return !isPortrait && fighter.isReferenceArt ? '/assets/honda-reference.png' : null;
+ }
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index c28a78a..1984788 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -105,7 +105,7 @@ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+       <div className="section-bar"><div><span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span><h2>MEUS <em>FAVORITOS</em><span className="heading-dot">.</span></h2><p>Seus lutadores favoritos e todos os combos que você está treinando.</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
+       <div className="fighter-tools"><div className="filter-pills"><button type="button" className={filter === 'all' ? 'filter-active' : ''} onClick={() => setFilter('all')}><SlidersHorizontal size={15}/> TODOS OS FIGHTERS</button><button type="button" className={filter === 'mains' ? 'filter-active' : ''} onClick={() => setFilter('mains')}><Star size={15}/> MEUS FAVORITOS <span className="count-pill">{data.mains.length}</span></button></div><label className="search-box"><Search size={18}/><input placeholder="Buscar lutador..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar lutador"/><kbd>⌕</kbd></label></div>
+       {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Escolha personagens na página Personagens e adicione-os aos favoritos.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
+-      <div className="roster-note"><Sparkles size={14}/> Seus SVGs em public/assets serão encontrados automaticamente ao iniciar o projeto.</div>
++      <div className="roster-note"><Sparkles size={14}/> Retratos em public/assets/portrait characters e artes grandes em public/assets/display characters.</div>
+     </section>
+   </main>;
+ }
+diff --git a/src/styles.css b/src/styles.css
+index f767d36..3284a8a 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -547,3 +547,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+   .combo-detail-dialog { max-height:calc(100dvh - 20px); }
+   .combo-detail-dialog>header,.combo-detail-content { padding:16px; }
+ }
++
++/* Patch 04 — Larger SF6 logo, preserving the existing header height. */
++.site-header .logo-icon { width:66px; height:66px; }
++.site-header .site-logo { gap:9px; }
++/* Portrait assets are already cropped around the head; avoid the old 1.6x overzoom. */
++.fighter-artwork--portrait img { object-position:var(--face-x,50%) var(--face-y,25%); transform:scale(var(--face-zoom,1.08)); transform-origin:50% 25%; }
++.select-fighter:hover img,.select-fighter--active img { transform:scale(calc(var(--face-zoom,1.08) * 1.04)); }
++@media (max-width:760px) {
++  .site-header .logo-icon { width:50px; height:50px; }
++}
++@media (max-width:390px) {
++  .site-header .logo-icon { width:43px; height:43px; }
++  .site-header .site-logo { gap:6px; }
++  .site-header .logo-copy strong { font-size:17px; }
++  .site-header .main-nav a { padding:0 5px; }
++}

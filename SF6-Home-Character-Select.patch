@@ -1,0 +1,470 @@
+diff --git a/README.md b/README.md
+index 8d12aa4..7d98e49 100644
+--- a/README.md
++++ b/README.md
+@@ -47,10 +47,22 @@ git commit -m "feat: MVP do SF6 Combo Builder"
+ - Exportação e importação JSON com validação básica, limites de tamanho e confirmação antes de substituir dados.
+ - Layout responsivo com prioridade para desktop.
+ 
++## Atualização: Character Select da Home
++
++A **Home** mostra os 32 personagens em um painel de retratos recortados (preto e branco) com um palco de prévia à direita. Clique em um retrato para selecionar; clique **Abrir combos** para acessar a página daquele personagem. O botão **Adicionar aos Mains** é separado da seleção. O antigo *Featured Fighter* foi removido, assim como a segunda grade duplicada de personagens abaixo da Home. A página **Meus Mains** continua disponível.
++
++### SVGs locais (nenhum download automático)
++
++Coloque seus 32 SVGs dentro de `public/assets/` (aceita subpastas, por exemplo `public/assets/characters/Ryu.svg`). Ao executar `npm run dev` ou `npm run build`, o comando `npm run artwork` procura os SVGs e gera `src/data/fighterArt.generated.ts` com seus caminhos reais. O identificador é encontrado pelo nome do arquivo (aceita Ryu.svg, RYU.svg, E.Honda.svg, Chun-Li.svg, C_Viper.svg, Mai_SF6.svg etc.). Reinicie o Vite após adicionar ou renomear imagens.
++
++Se seus arquivos tiverem nomes completamente diferentes, edite o mapa `fighterArtworkOverrides` em `src/data/fighterArtwork.ts`; exemplo: `'ryu': '/assets/personagens/001.svg'`. Se quiser ajustar o enquadramento do rosto, edite `portraitFraming` nesse mesmo arquivo; exemplo: `'ryu': { x: 50, y: 9, zoom: 1.8 }`. O painel usa `object-fit: cover` com zoom (foco na região superior) e a arte grande usa `contain` para não cortar o personagem.
++
++**Importante:** os 32 SVGs não estão dentro do ZIP do MVP anterior; o patch não inclui nem substitui as imagens que você já adicionou localmente. Personagens sem SVG reconhecido recebem iniciais provisórias (E. Honda conserva a referência PNG). As imagens serão carregadas após a geração do mapa.
++
+ ## Como usar
+ 
+-1. Clique no **+** do lutador na Home para adicioná-lo aos seus Mains.
+-2. Clique no card para acessar os combos do lutador.
++1. Na Home, clique no **retrato** do lutador e depois em **Adicionar aos Mains**, caso queira salvá-lo na coleção.
++2. Clique em **Abrir combos** para acessar a página do lutador.
+ 3. Clique **Criar combo**. Escolha a categoria e adicione comandos nas abas.
+ 4. Clique no comando da prévia para selecioná-lo. Use os botões de reordenação e remoção.
+ 5. Dê nome e clique **Salvar combo**. Volte depois para editar, duplicar ou filtrar.
+@@ -75,7 +87,7 @@ public/assets/
+ ## Assets, convenções e limitações
+ 
+ - `Soco.png`, `Chute.png`, `Setas.png`, `Comandos.png`, `Divisor.png` foram divididos em imagens individuais sem redesenhá-los. O design é inspirado no `Character Combos.png` fornecido.
+-- Apenas **E. Honda** possui arte de personagem nos materiais originais. Os demais usam iniciais estilizadas como *placeholder*, e podem receber suas imagens futuramente. Nenhum retrato oficial foi baixado.
++- No ZIP original, apenas **E. Honda** possuía arte. Esta atualização reconhece os SVGs que você já tem em `public/assets/`, sem baixar imagens. Se faltar algum arquivo ou o nome não corresponder, o personagem recebe um placeholder.
+ - A representação gráfica de frente/trás assume que o personagem olha para a direita. Ao inverter de lado no jogo, os comandos relativos mudam.
+ - Ícones para direções, QCF, QCB, DP e HCB vêm dos assets. HCF e DP invertido reutilizam o sprite espelhado. Double quarter-circle e charge usam notação tipográfica provisória. Comandos de sistema possuem marcadores textuais provisórios, pois não existem sprites específicos fornecidos.
+ - As abreviações OD e PP/KK são **atalhos visuais**, não uma verificação de moveset: não existe validação automática de quais movimentos são possíveis para cada lutador. O usuário monta e cataloga suas próprias sequências.
+diff --git a/package.json b/package.json
+index 09eff4c..3710e38 100644
+--- a/package.json
++++ b/package.json
+@@ -9,7 +9,10 @@
+     "preview": "vite preview --host 127.0.0.1",
+     "typecheck": "tsc --noEmit",
+     "lint": "eslint .",
+-    "test": "node scripts/selftest.cjs"
++    "test": "node scripts/selftest.cjs",
++    "artwork": "node scripts/generate-fighter-art.mjs",
++    "predev": "npm run artwork",
++    "prebuild": "npm run artwork"
+   },
+   "dependencies": {
+     "lucide-react": "^0.468.0",
+diff --git a/scripts/generate-fighter-art.mjs b/scripts/generate-fighter-art.mjs
+new file mode 100644
+index 0000000..b6cd8b7
+--- /dev/null
++++ b/scripts/generate-fighter-art.mjs
+@@ -0,0 +1,39 @@
++/**
++ * Discovers the user's own SVG fighter illustrations under public/assets.
++ * Runs automatically before `npm run dev` and `npm run build`.
++ * No images are downloaded or modified by this script.
++ */
++import { readdir, mkdir, writeFile } from 'node:fs/promises';
++import { join, relative, resolve, sep } from 'node:path';
++
++const root = resolve('public/assets');
++const output = resolve('src/data/fighterArt.generated.ts');
++const found = [];
++
++async function visit(folder) {
++  let items;
++  try { items = await readdir(folder, { withFileTypes: true }); }
++  catch (error) {
++    if (error.code === 'ENOENT') return;
++    throw error;
++  }
++  for (const item of items) {
++    const fullPath = join(folder, item.name);
++    if (item.isDirectory()) await visit(fullPath);
++    else if (item.isFile() && item.name.toLowerCase().endsWith('.svg')) {
++      // URLs are rooted at /assets: do not put /public in the browser path.
++      const url = '/assets/' + relative(root, fullPath)
++        .split(sep).map(encodeURIComponent).join('/');
++      found.push(url);
++    }
++  }
++}
++
++await visit(root);
++found.sort((a, b) => a.localeCompare(b));
++await mkdir(resolve('src/data'), { recursive: true });
++await writeFile(output,
++  '// AUTO-GENERATED — do not hand-edit. Run `npm run artwork` to refresh.\n' +
++  'export const availableFighterSvgs: readonly string[] = ' + JSON.stringify(found, null, 2) + ';\n',
++  'utf8');
++console.log(`[character art] ${found.length} SVG(s) found under public/assets`);
+diff --git a/src/components/FighterArtwork.tsx b/src/components/FighterArtwork.tsx
+new file mode 100644
+index 0000000..3779f5e
+--- /dev/null
++++ b/src/components/FighterArtwork.tsx
+@@ -0,0 +1,28 @@
++import { useState } from 'react';
++import type { CSSProperties } from 'react';
++import type { Fighter } from '../types';
++import { getFighterArtwork, portraitFraming } from '../data/fighterArtwork';
++
++interface Props {
++  fighter: Fighter;
++  variant: 'portrait' | 'stage';
++}
++
++export function FighterArtwork({ fighter, variant }: Props) {
++  const [failed, setFailed] = useState(false);
++  const url = getFighterArtwork(fighter);
++  const framing = portraitFraming[fighter.id];
++  const style = framing ? {
++    '--face-x': `${framing.x}%`, '--face-y': `${framing.y}%`, '--face-zoom': framing.zoom,
++  } as CSSProperties : undefined;
++
++  return <div className={`fighter-artwork fighter-artwork--${variant}`} style={style}>
++    {url && !failed ? (
++      <img src={url} alt={variant === 'stage' ? `Arte de ${fighter.name}` : ''}
++        loading={variant === 'portrait' ? 'lazy' : 'eager'}
++        decoding="async" onError={() => setFailed(true)} />
++    ) : (
++      <span className="fighter-artwork-fallback" aria-hidden="true">{fighter.abbreviation}</span>
++    )}
++  </div>;
++}
+diff --git a/src/data/fighterArt.generated.ts b/src/data/fighterArt.generated.ts
+new file mode 100644
+index 0000000..a737745
+--- /dev/null
++++ b/src/data/fighterArt.generated.ts
+@@ -0,0 +1,2 @@
++// AUTO-GENERATED — do not hand-edit. Run `npm run artwork` to refresh.
++export const availableFighterSvgs: readonly string[] = [];
+diff --git a/src/data/fighterArtwork.ts b/src/data/fighterArtwork.ts
+new file mode 100644
+index 0000000..c583738
+--- /dev/null
++++ b/src/data/fighterArtwork.ts
+@@ -0,0 +1,59 @@
++import type { Fighter } from '../types';
++import { availableFighterSvgs } from './fighterArt.generated';
++
++/** For file names that cannot be identified automatically, map a fighter ID to a public URL.
++ * Example: 'ryu': '/assets/my-folder/custom-filename.svg'
++ */
++export const fighterArtworkOverrides: Record<string, string> = {};
++
++/** Fine-tune an individual fighter's face framing (percentage and zoom).
++ * Keep the CSS defaults for everyone else. E.g. 'ryu': { x: 48, y: 9, zoom: 1.85 }
++ */
++export const portraitFraming: Record<string, { x: number; y: number; zoom: number }> = {};
++
++function normalize(value: string) {
++  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
++    .toLowerCase().replace(/[^a-z0-9]/g, '');
++}
++
++function filePart(url: string) {
++  const decoded = decodeURIComponent(url.split('/').pop() ?? '');
++  return decoded.replace(/\.svg$/i, '');
++}
++
++function score(url: string, fighter: Fighter): number {
++  const stem = normalize(filePart(url));
++  const reduced = stem.replace(/streetfighter6|streetfighter|sf6|character|portrait|profile|render|artwork|fighter|transparent|fullbody|cutout|official|thumb|image|art/g, '').replace(/[0-9]+$/, '');
++  const aliases = [fighter.id, fighter.name];
++  if (fighter.id === 'e-honda') aliases.push('Honda');
++  if (fighter.id === 'dee-jay') aliases.push('Deejay');
++  if (fighter.id === 'm-bison') aliases.push('Bison');
++  if (fighter.id === 'c-viper') aliases.push('Viper');
++  const keys = [...new Set(aliases.map(normalize))];
++  const parent = normalize(decodeURIComponent(url.split('/').at(-2) ?? ''));
++  let best = 0;
++  for (const key of keys) {
++    if (!key) continue;
++    if (stem === key) best = Math.max(best, 100);
++    if (reduced === key) best = Math.max(best, 95);
++    if (stem === `${key}sf6` || stem === `sf6${key}`) best = Math.max(best, 94);
++    if (stem.startsWith(`${key}portrait`) || stem.startsWith(`${key}render`) || stem.startsWith(`${key}character`) || stem.startsWith(`${key}art`)) best = Math.max(best, 90);
++    if (stem.startsWith(`sf6${key}`) || stem.startsWith(`character${key}`) || stem.startsWith(`portrait${key}`) || stem.startsWith(`fighter${key}`)) best = Math.max(best, 88);
++    if (parent === key && ['portrait', 'art', 'character', 'render', 'default', 'fighter'].includes(stem)) best = Math.max(best, 87);
++    if (stem.startsWith(key) && /^([0-9]|svg|thumb|icon|profile|image|full|cutout)/.test(stem.slice(key.length))) best = Math.max(best, 82);
++  }
++  // Prefer the character-specific folders over unrelated site SVGs.
++  if (/\/(characters|fighters|roster|portraits)\//i.test(url)) best += best ? 3 : 0;
++  return best;
++}
++
++export function getFighterArtwork(fighter: Fighter): string | null {
++  if (fighterArtworkOverrides[fighter.id]) return fighterArtworkOverrides[fighter.id];
++  const matches = availableFighterSvgs
++    .map((url) => ({ url, relevance: score(url, fighter) }))
++    .filter(({ relevance }) => relevance > 0)
++    .sort((a, b) => b.relevance - a.relevance || a.url.length - b.url.length);
++  if (matches.length) return matches[0].url;
++  // Keep the one supplied raster reference until a matching SVG is found.
++  return fighter.isReferenceArt ? '/assets/honda-reference.png' : null;
++}
+diff --git a/src/pages/HomePage.tsx b/src/pages/HomePage.tsx
+index 9ac46aa..f92ecfa 100644
+--- a/src/pages/HomePage.tsx
++++ b/src/pages/HomePage.tsx
+@@ -1,34 +1,111 @@
+ import { useMemo, useState } from 'react';
+-import { ArrowRight, Search, SlidersHorizontal, Sparkles, Swords, Plus, Star } from 'lucide-react';
++import { ArrowRight, Check, Gamepad2, Plus, Search, SlidersHorizontal, Sparkles, Star } from 'lucide-react';
+ import { Link } from 'react-router-dom';
++import type { CSSProperties } from 'react';
+ import { fighters } from '../data/characters';
+ import { useCollection } from '../hooks/useCollection';
+ import { FighterCard } from '../components/FighterCard';
++import { FighterArtwork } from '../components/FighterArtwork';
+ 
++// Match the order in the character-select reference image without changing saved IDs.
++const referenceRosterOrder = [
++  'arjun', 'yasmine', 'ingrid', 'alex', 'c-viper', 'sagat', 'elena', 'mai', 'terry', 'm-bison', 'akuma',
++  'ed', 'aki', 'rashid', 'cammy', 'lily', 'zangief', 'jp', 'marisa', 'manon', 'dee-jay', 'e-honda',
++  'dhalsim', 'blanka', 'ken', 'juri', 'kimberly', 'guile', 'chun-li', 'jamie', 'luke', 'ryu',
++];
++const homeRoster = [...fighters].sort((a, b) => referenceRosterOrder.indexOf(a.id) - referenceRosterOrder.indexOf(b.id));
++
++/** The Home and Mains views share data but have deliberately different layouts. */
+ export function HomePage({ mainsOnly = false }: { mainsOnly?: boolean }) {
+-  const { data } = useCollection();
++  const { data, isMain, toggleMain } = useCollection();
+   const [query, setQuery] = useState('');
+   const [filter, setFilter] = useState<'all' | 'mains'>(mainsOnly ? 'mains' : 'all');
+-  const shown = useMemo(() => fighters.filter((fighter) =>
++  const [selectedId, setSelectedId] = useState(fighters[0].id);
++  const selected = fighters.find((fighter) => fighter.id === selectedId) ?? fighters[0];
++
++  const shown = useMemo(() => (mainsOnly ? fighters : homeRoster).filter((fighter) =>
+     (filter === 'all' || data.mains.includes(fighter.id)) &&
+-    fighter.name.toLowerCase().includes(query.trim().toLowerCase())), [data.mains, filter, query]);
++    fighter.name.toLowerCase().includes(query.trim().toLowerCase())), [data.mains, filter, query, mainsOnly]);
++
++  if (!mainsOnly) {
++    const isSelectedMain = isMain(selected.id);
++    const selectedCombos = data.combos.filter((combo) => combo.characterId === selected.id).length;
++
++    return <main className="home-character-select">
++      <section className="select-layout" aria-label="Seleção de personagens">
++        <div className="select-roster">
++          <div className="select-roster-top">
++            <div>
++              <p className="select-eyebrow"><span className="pulse-dot"/> STREET FIGHTER 6 / ROSTER</p>
++              <h2>CHOOSE YOUR <span>FIGHTER.</span></h2>
++              <p className="select-roster-help">Selecione um retrato para visualizar o lutador.</p>
++            </div>
++            <div className="select-roster-count"><strong>{String(shown.length).padStart(2, '0')}</strong><small>FIGHTERS</small></div>
++          </div>
++          <label className="select-roster-search">
++            <Search size={17} aria-hidden="true"/>
++            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar personagem..." aria-label="Buscar personagem"/>
++            <span>{String(fighters.length).padStart(2, '0')} TOTAL</span>
++          </label>
++          <div className="select-roster-grid" aria-label="Escolha um personagem">
++            {shown.map((fighter) => {
++              const active = selected.id === fighter.id;
++              const main = isMain(fighter.id);
++              return <button
++                key={fighter.id} type="button" onClick={() => setSelectedId(fighter.id)}
++                aria-label={`Selecionar ${fighter.name}${main ? ', na sua coleção' : ''}`}
++                aria-pressed={active}
++                className={`select-fighter ${active ? 'select-fighter--active' : ''}`}
++                style={{ '--fighter-color': fighter.hue } as CSSProperties}
++                title={`Selecionar ${fighter.name}`}
++              >
++                <FighterArtwork fighter={fighter} variant="portrait"/>
++                <span className="select-fighter-shade"/>
++                <span className="select-fighter-name">{fighter.name}</span>
++                {main && <span className="select-fighter-main" aria-label="Main"><Star size={11} fill="currentColor"/></span>}
++              </button>;
++            })}
++          </div>
++          {shown.length === 0 && <div className="select-empty">Nenhum lutador encontrado. <button type="button" onClick={() => setQuery('')}>Limpar busca</button></div>}
++          <div className="select-roster-bottom"><span><span className="select-bottom-dot"/> SELECT YOUR CHARACTER</span><span>{data.mains.length} MAINS / {data.combos.length} COMBOS SALVOS</span></div>
++        </div>
++
++        <aside className="select-stage" style={{ '--fighter-color': selected.hue } as CSSProperties} aria-label={`Personagem selecionado: ${selected.name}`}>
++          <div className="select-stage-backdrop" aria-hidden="true"/>
++          <div className="select-stage-copy">
++            <p className="select-eyebrow"><span className="pulse-dot"/> THE TRAINING GROUNDS <span className="select-kicker-line"/> SEASON 01</p>
++            <h1>BUILD YOUR COMBOS.<br/><span>OWN THE FIGHT.</span></h1>
++            <p>Seus personagens. Seus combos. Seu jeito de jogar.</p>
++          </div>
++          <div className="select-stage-portrait" key={selected.id}>
++            <FighterArtwork fighter={selected} variant="stage"/>
++          </div>
++          <div className="select-stage-information" key={`${selected.id}-info`}>
++            <div className="select-stage-number">{String(fighters.indexOf(selected) + 1).padStart(2, '0')} / {String(fighters.length).padStart(2, '0')} <span>SELECTED FIGHTER</span></div>
++            <h2>{selected.name}</h2>
++            <p>{selected.title} <span className="select-info-divider"/> {selectedCombos} {selectedCombos === 1 ? 'COMBO' : 'COMBOS'}</p>
++            <div className="select-stage-actions">
++              <Link className="primary-button" to={`/fighter/${selected.id}`}><Gamepad2 size={17}/> ABRIR COMBOS <ArrowRight size={16}/></Link>
++              <button type="button" className={`select-main-button ${isSelectedMain ? 'select-main-button--active' : ''}`} onClick={() => toggleMain(selected.id)}>
++                {isSelectedMain ? <Check size={17}/> : <Plus size={17}/>}
++                {isSelectedMain ? 'NOS MEUS MAINS' : 'ADICIONAR AOS MAINS'}
++              </button>
++            </div>
++            <Link to="/mains" className="select-my-mains"><Star size={13}/> MINHA COLEÇÃO <ArrowRight size={13}/></Link>
++          </div>
++          <span className="select-stage-edge" aria-hidden="true">SF6 / TRAINING MODE / NO. 001</span>
++        </aside>
++      </section>
++    </main>;
++  }
++
++  // Keep the existing Mains page and its search / filter / cards intact.
+   return <main>
+-    {!mainsOnly && <section className="hero">
+-      <div className="hero-ambient"/><div className="hero-copy">
+-        <p className="hero-kicker"><span className="pulse-dot"/> THE TRAINING GROUNDS <span className="hero-kicker-line"/> SEASON 01</p>
+-        <h1>BUILD YOUR<br/><span>COMBOS.</span><br/>OWN THE FIGHT<span className="heading-dot">.</span></h1>
+-        <p className="hero-description">Seus personagens. Seus combos. Seu jeito de jogar. Escolha seus mains e transforme cada sequência em memória muscular.</p>
+-        <div className="hero-actions"><a href="#fighters" className="primary-button">ESCOLHER LUTADOR <ArrowRight size={18}/></a><Link to="/mains" className="secondary-button">MINHA COLEÇÃO <Star size={17}/></Link></div>
+-        <div className="hero-mini-stat"><span className="hero-stat-icon"><Swords size={20}/></span><div><b>{data.combos.length.toString().padStart(2,'0')}</b><small>COMBOS REGISTRADOS</small></div><span className="hero-stat-divider"/><div><b>{data.mains.length.toString().padStart(2,'0')}</b><small>MAINS NA COLEÇÃO</small></div></div>
+-      </div>
+-      <div className="hero-visual"><div className="hero-art-label">FEATURED FIGHTER <strong>08 / E. HONDA</strong></div><div className="hero-art"/><span className="hero-kanji">闘</span></div>
+-      <div className="hero-vertical">SF6 / TRAINING MODE / NO. 001</div>
+-    </section>}
+     <section id="fighters" className="fighters-section">
+-      <div className="section-bar"><div><span className="eyebrow">{mainsOnly ? 'YOUR FIGHTERS / PERSONAL COLLECTION' : 'SELECT YOUR FIGHTER / ROSTER'}</span><h2>{mainsOnly ? 'MEUS ' : 'CHARACTER '}<em>{mainsOnly ? 'MAINS' : 'SELECT'}</em><span className="heading-dot">.</span></h2><p>{mainsOnly ? 'Seus lutadores favoritos e todos os combos que você está treinando.' : 'Escolha seus lutadores. Adicione aos Mains. Comece a montar seus combos.'}</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
++      <div className="section-bar"><div><span className="eyebrow">YOUR FIGHTERS / PERSONAL COLLECTION</span><h2>MEUS <em>MAINS</em><span className="heading-dot">.</span></h2><p>Seus lutadores favoritos e todos os combos que você está treinando.</p></div><div className="roster-count"><strong>{String(shown.length).padStart(2,'0')}</strong><span>FIGHTERS<br/>DISPONÍVEIS</span></div></div>
+       <div className="fighter-tools"><div className="filter-pills"><button type="button" className={filter === 'all' ? 'filter-active' : ''} onClick={() => setFilter('all')}><SlidersHorizontal size={15}/> TODOS OS FIGHTERS</button><button type="button" className={filter === 'mains' ? 'filter-active' : ''} onClick={() => setFilter('mains')}><Star size={15}/> MEUS MAINS <span className="count-pill">{data.mains.length}</span></button></div><label className="search-box"><Search size={18}/><input placeholder="Buscar lutador..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar lutador"/><kbd>⌕</kbd></label></div>
+-      {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Adicione lutadores ao seu time clicando no símbolo + nos cards.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
+-      <div className="roster-note"><Sparkles size={14}/> Os cards sem arte oficial usam iniciais provisórias. Você pode substituir suas imagens depois sem mudar a estrutura.</div>
++      {shown.length ? <div className="fighter-grid">{shown.map((fighter) => <FighterCard key={fighter.id} fighter={fighter} index={fighters.findIndex((item) => item.id === fighter.id)} />)}</div> : <div className="empty-state"><div className="empty-symbol">{filter === 'mains' && !query ? <Star size={35}/> : <Search size={35}/>}</div><h3>{filter === 'mains' ? 'SUA EQUIPE AINDA ESTÁ VAZIA' : 'NENHUM LUTADOR ENCONTRADO'}</h3><p>{filter === 'mains' ? 'Escolha lutadores na Home e adicione-os aos Mains.' : 'Tente buscar outro nome ou remover os filtros.'}</p><button type="button" onClick={() => { setFilter('all'); setQuery(''); }} className="primary-button"><Plus size={17}/> VER TODOS OS LUTADORES</button></div>}
++      <div className="roster-note"><Sparkles size={14}/> Seus SVGs em public/assets serão encontrados automaticamente ao iniciar o projeto.</div>
+     </section>
+   </main>;
+ }
+diff --git a/src/styles.css b/src/styles.css
+index f35980f..a3cbd91 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -260,3 +260,125 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
+ @media (max-width:760px) { .site-header,.header-inner { min-height:65px; } .header-inner { padding:0 15px; gap:10px; } .logo-icon { width:34px; height:34px; } .logo-icon svg { width:20px; } .logo-copy strong { font-size:19px; } .logo-copy small { font-size:7px; letter-spacing:1.1px; } .main-nav a { padding:0 8px; font-size:0; } .main-nav a svg { width:20px; height:20px; } .main-nav a .nav-count { font-size:9px; } .main-nav a.nav-active:after { left:7px; right:7px; } .main-nav { gap:1px; } .hero { display:block; min-height:600px; } .hero-copy { padding:55px 25px 70px; } .hero h1 { position:relative; z-index:5; font-size:clamp(52px,11vw,85px); } .hero-description { max-width:440px; } .hero-visual { position:absolute; z-index:-1; opacity:.38; inset:90px 0 0 35%; } .hero-ambient { position:absolute; inset:0; background:linear-gradient(100deg,#1b1236 20%,transparent 100%); } .hero-art { inset:0 -60% 0 -20%; background-size:auto 100%; } .hero-art-label,.hero-kanji,.hero-vertical { display:none; } .fighters-section { padding:45px 18px 60px; } .section-bar h2 { font-size:41px; } .section-bar p { line-height:1.6; } .roster-count strong { font-size:40px; } .fighter-grid { grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; } .fighter-art-zone { height:150px; } .fighter-placeholder { font-size:75px; } .fighter-card-title { font-size:20px; } .fighter-card-bottom { padding:10px 8px; } .fighter-card-top { padding:8px; font-size:7px; } .fighter-add { width:30px; height:30px; } .fighter-tools { gap:15px; } .filter-pills button { font-size:9px; padding:0 9px; } .search-box { max-width:none; width:100%; } .footer-inner { padding:20px; flex-direction:column; align-items:start; } .footer-links { flex-wrap:wrap; gap:8px; } .fighter-page { padding:18px 17px 55px; } .fighter-hero { min-height:270px; gap:10px; } .fighter-profile-art { flex-basis:145px; } .fighter-profile-art>span { font-size:110px; } .fighter-profile-info { padding:22px 12px 22px 0; } .fighter-profile-info h1 { font-size:43px; } .fighter-profile-info>p { font-size:11px; } .profile-stats { gap:14px; margin-top:18px; } .profile-stats b { font-size:24px; } .profile-stats span { font-size:8px; } .profile-actions { position:absolute; left:15px; bottom:12px; right:15px; padding:0; flex-direction:row; justify-content:end; } .profile-actions button { min-height:38px; padding:9px 10px; font-size:9px; } .fighter-hero { padding-bottom:48px; } .combos-layout { display:block; } .category-sidebar { display:flex; overflow-x:auto; border:none; background:transparent; padding:0 0 14px; gap:4px; margin-bottom:12px; } .sidebar-heading,.sidebar-tip { display:none; } .sidebar-item { width:auto; flex:0 0 auto; gap:9px; padding:8px 12px; border:1px solid #503c60; border-left:1px solid #503c60; min-height:37px; background:#251c35; } .sidebar-item--active { border-color:#c34ace; background:#59296b; } .combos-list-heading h2 { font-size:31px; } .settings-page { padding:40px 18px 65px; } .settings-grid { grid-template-columns:1fr; } .settings-card { min-height:210px; } .editor-overlay { padding:0; } .editor-panel { width:100%; height:100dvh; } .editor-content { display:flex; flex-direction:column; overflow-y:auto; } .editor-left,.editor-right { overflow:visible; } .editor-right { border-left:none; border-top:1px solid #503260; } .editor-header { padding:16px 19px; } .command-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .command-picker { min-height:105px; } }
+ @media (max-width:440px) { .hero { min-height:590px; } .hero-copy { padding:55px 18px; } .hero h1 { font-size:clamp(48px,12vw,58px); } .hero-description { font-size:12px; } .hero-actions { align-items:stretch; gap:9px; } .hero-actions a { padding:10px; font-size:9px; } .hero-mini-stat { gap:11px; } .hero-mini-stat small { font-size:8px; } .section-bar h2 { font-size:36px; } .roster-count { display:none; } .fighter-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .fighter-art-zone { height:160px; } .fighter-card-title { font-size:22px; } .fighter-profile-art { flex-basis:110px; } .fighter-profile-info h1 { font-size:36px; } .fighter-profile-info>p { font-size:10px; } .profile-stats { gap:10px; } .profile-stats span { font-size:7px; } .profile-actions { justify-content:stretch; } .profile-actions button { flex:1; font-size:8px; gap:5px; white-space:normal; } .combos-list-heading .primary-button { font-size:9px; padding:10px; min-height:40px; } .combo-filters,.combo-search { width:100%; max-width:none; } .combo-card-head { gap:8px; padding:10px 7px; } .combo-actions { gap:0; } .icon-button { min-width:27px; } .combo-heading h3 { font-size:13px; } .combo-card-body { margin:0 8px; padding:10px 6px; } .command-icon { width:29px; height:30px; } .command-icon--motion { width:90px; } .command-icon--separator { width:20px; } .command-icon--system { width:50px; } .command-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .editor-left,.editor-right { padding:17px 13px 25px; } .editor-header h2 { font-size:28px; } .step-toolbar>span { max-width:155px; line-height:1.5; } }
+ @media (prefers-reduced-motion:reduce) { *,*:before,*:after { animation-duration:.001ms!important; transition-duration:.001ms!important; scroll-behavior:auto!important; } }
++
++/* =============================================================
++   HOME V2 — CHARACTER SELECT
++   Independent of the original .hero / .fighter-grid styles.
++   Portraits are SVG assets supplied in public/assets; artwork
++   framing can be overridden in src/data/fighterArtwork.ts.
++   ============================================================= */
++.home-character-select { width:100%; }
++.select-layout { max-width:1480px; min-height:780px; margin:0 auto; display:grid; grid-template-columns:minmax(0,60%) minmax(0,40%); background:linear-gradient(115deg,#100e1e,#211235); border-bottom:1px solid #49305e; isolation:isolate; }
++.select-roster { min-width:0; padding:29px 27px 20px 38px; background:radial-gradient(ellipse 90% 85% at 50% 10%,#3021477d,transparent 75%),linear-gradient(155deg,#130f25,#1c1230); border-right:1px solid #543468; position:relative; }
++.select-roster:before { content:''; pointer-events:none; inset:0; position:absolute; opacity:.28; background:repeating-linear-gradient(115deg,transparent 0,transparent 78px,#a67dd214 79px,#a67dd214 80px); }
++.select-roster > * { position:relative; }
++.select-roster-top { display:flex; align-items:flex-end; justify-content:space-between; gap:15px; margin-bottom:17px; }
++.select-eyebrow { display:flex; align-items:center; gap:9px; color:#e28be5; font-size:9px; letter-spacing:2px; line-height:1.4; font-weight:900; margin:0 0 10px; }
++.select-eyebrow .pulse-dot { display:inline-block; flex-shrink:0; width:6px; height:6px; }
++.select-roster-top h2 { font:900 clamp(26px,2.9vw,39px)/1 Impact,'Arial Black',sans-serif; letter-spacing:.45px; margin:0; }
++.select-roster-top h2 span { color:#d854df; }
++.select-roster-help { color:#9e90af; font-size:11px; margin:9px 0 0; }
++.select-roster-count { display:flex; flex-direction:column; align-items:flex-end; gap:0; color:#aca0b9; }
++.select-roster-count strong { font:42px/1 Impact,'Arial Black',sans-serif; color:#f4ecfa; }
++.select-roster-count small { font-weight:900; font-size:9px; letter-spacing:1.4px; }
++.select-roster-search { display:flex; align-items:center; gap:10px; width:100%; height:39px; padding:0 13px; color:#9c8fb2; background:#0f0c1dc9; border:1px solid #514067; margin-bottom:14px; }
++.select-roster-search:focus-within { border-color:#d554e3; }
++.select-roster-search input { min-width:0; flex:1; height:100%; background:transparent; border:none; color:white; font-size:12px; outline:none; }
++.select-roster-search input::placeholder { color:#81738c; }
++.select-roster-search span { white-space:nowrap; font-weight:850; font-size:9px; letter-spacing:1px; color:#81738c; }
++.select-roster-grid { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); grid-auto-rows:135px; gap:5px 3px; }
++.select-fighter { display:block; width:100%; height:100%; min-width:0; min-height:0; padding:0; border:0; position:relative; isolation:isolate; overflow:hidden; color:white; background:#292038; clip-path:polygon(15% 0,100% 0,85% 100%,0% 100%); transform:translateZ(0); transition:background .18s,filter .18s; }
++.select-fighter::before { position:absolute; inset:0; content:''; pointer-events:none; z-index:0; background:linear-gradient(145deg,#514767,#191322 75%); }
++.select-fighter:hover { background:#6d4087; filter:brightness(1.17); }
++.select-fighter--active { background:var(--fighter-color); }
++.select-fighter--active::after { position:absolute; inset:0; content:''; pointer-events:none; z-index:5; box-shadow:inset 0 0 0 3px #ef7af9,inset 0 0 20px #e562ea66; }
++.select-fighter:focus-visible { outline:0; box-shadow:inset 0 0 0 4px #80f1f1; }
++.select-fighter .fighter-artwork--portrait { position:absolute; z-index:1; inset:0; }
++.fighter-artwork--portrait { display:grid; place-items:center; overflow:hidden; background:radial-gradient(ellipse 100% 100% at 48% 65%,#70618c6e,transparent 80%); }
++.fighter-artwork--portrait img { display:block; width:100%; height:100%; object-fit:cover; object-position:var(--face-x,50%) var(--face-y,15%); transform:scale(var(--face-zoom,1.6)); transform-origin:50% 15%; filter:grayscale(1) contrast(1.15) brightness(.92); transition:filter .2s,transform .25s; }
++.select-fighter:hover img,.select-fighter--active img { filter:grayscale(.06) contrast(1.09) saturate(1.08); transform:scale(calc(var(--face-zoom,1.6) * 1.04)); }
++.select-fighter-shade { position:absolute; z-index:2; inset:40% 0 0; background:linear-gradient(0deg,#0c0919f2 0%,#0c091985 29%,transparent); pointer-events:none; }
++.select-fighter-name { position:absolute; z-index:3; bottom:10px; left:9px; right:9px; font:900 clamp(11px,1.15vw,16px)/1.05 Impact,'Arial Narrow','Arial Black',sans-serif; text-align:left; letter-spacing:.05px; text-transform:uppercase; text-shadow:1px 2px 2px #000,0 0 10px #000b; overflow-wrap:anywhere; }
++.select-fighter-main { display:grid; place-items:center; position:absolute; z-index:4; right:16px; top:8px; width:19px; height:19px; background:#e859d7; box-shadow:0 0 8px #0008; }
++.fighter-artwork-fallback { color:#a99ab8; font:900 39px/1 Impact,sans-serif; text-shadow:0 8px 20px #05030a; }
++.select-fighter--active .fighter-artwork-fallback { color:#f8e8ff; }
++.select-empty { background:#1f1932; border:1px dashed #63507a; text-align:center; padding:40px 10px; color:#b5a7c8; font-size:13px; }
++.select-empty button { color:#ec87e6; text-decoration:underline; background:none; border:0; padding:0; }
++.select-roster-bottom { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:center; padding-top:20px; color:#9d8bb1; font-size:9px; letter-spacing:1px; font-weight:900; }
++.select-roster-bottom>span:first-child { color:#db9adf; display:flex; align-items:center; gap:8px; }
++.select-bottom-dot { width:6px; height:6px; border-radius:50%; background:#97ec90; box-shadow:0 0 10px #97ec90; }
++.select-stage { min-height:780px; position:relative; overflow:hidden; background:radial-gradient(ellipse 95% 95% at 57% 44%,color-mix(in srgb,var(--fighter-color) 22%,#4b2b69),transparent 75%),linear-gradient(110deg,#28183f,#1b1233 75%); }
++.select-stage-backdrop { position:absolute; inset:0; background:repeating-linear-gradient(115deg,transparent 0,transparent 70px,#ffffff05 71px,#ffffff05 72px); opacity:.65; }
++.select-stage:after { position:absolute; z-index:1; content:''; inset:0; pointer-events:none; background:linear-gradient(180deg,#241338 0,transparent 33%,transparent 51%,#170e29 97%); }
++.select-stage-copy { position:relative; z-index:3; padding:35px 42px 0; }
++.select-kicker-line { width:25px; height:1px; background:#9f5baf; }
++.select-stage-copy h1 { font:900 clamp(29px,3.1vw,43px)/.98 Impact,'Arial Black',sans-serif; letter-spacing:.1px; margin:0; text-shadow:0 3px 14px #07040c9c; }
++.select-stage-copy h1 span { color:#f0b5f4; }
++.select-stage-copy>p:last-child { color:#c3b4d2; max-width:380px; font-size:11px; line-height:1.65; margin:14px 0 0; }
++.select-stage-portrait { position:absolute; z-index:1; inset:155px 0 100px; display:flex; align-items:end; justify-content:center; pointer-events:none; animation:stage-enter .28s ease-out both; }
++.fighter-artwork--stage { position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:end; }
++.fighter-artwork--stage img { width:100%; height:100%; display:block; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 15px 16px #06020ea6) saturate(1.16); }
++.fighter-artwork--stage .fighter-artwork-fallback { font-size:clamp(130px,22vw,300px); opacity:.4; background:linear-gradient(150deg,#b67fd6,var(--fighter-color)); background-clip:text; color:transparent; }
++.select-stage-information { position:absolute; z-index:4; bottom:0; left:0; right:0; padding:115px 38px 33px; background:linear-gradient(0deg,#1a102e 0%,#1a102ef0 46%,transparent); animation:stage-enter .28s ease-out both; }
++.select-stage-number { display:flex; align-items:center; gap:13px; color:#f3b2ed; font-size:11px; letter-spacing:2px; font-weight:900; }
++.select-stage-number span { border-left:2px solid #de5acb; padding-left:10px; color:#aa9abb; font-size:9px; }
++.select-stage-information h2 { margin:8px 0 2px; text-transform:uppercase; font:900 clamp(50px,5.5vw,76px)/.97 Impact,'Arial Black',sans-serif; text-shadow:0 4px 15px #05030c; }
++.select-stage-information>p { margin:4px 0 19px; color:#e2c6e4; font-size:10px; font-weight:900; letter-spacing:1.4px; }
++.select-info-divider { display:inline-block; height:9px; width:1px; margin:0 8px; background:#92799f; }
++.select-stage-actions { display:flex; align-items:stretch; gap:8px; }
++.select-stage-actions .primary-button { padding:12px 12px; gap:7px; font-size:10px; min-height:44px; flex:1; }
++.select-main-button { display:flex; align-items:center; justify-content:center; gap:7px; padding:10px 11px; border:1px solid #765289; background:#231935; color:#f0d7f0; font-size:9px; font-weight:900; letter-spacing:.35px; min-height:44px; }
++.select-main-button:hover { background:#412654; }
++.select-main-button--active { border-color:#d768dc; background:#532962; color:white; }
++.select-my-mains { display:inline-flex; align-items:center; gap:7px; color:#bba9ca; font-size:9px; font-weight:900; letter-spacing:1px; padding:12px 0 0; }
++.select-my-mains:hover { color:white; }
++.select-stage-edge { position:absolute; right:8px; top:40%; writing-mode:vertical-rl; font-size:9px; font-weight:900; letter-spacing:2px; color:#d5adcc59; z-index:3; }
++@keyframes stage-enter { from { opacity:.45; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
++@media (max-width:1200px) {
++  .select-roster { padding-left:24px; padding-right:20px; }
++  .select-roster-grid { grid-auto-rows:125px; }
++  .select-stage { min-height:740px; }
++  .select-layout { min-height:740px; }
++  .select-stage-copy { padding:32px 28px 0; }
++  .select-stage-information { padding-left:26px; padding-right:26px; }
++  .select-stage-actions { flex-wrap:wrap; }
++  .select-stage-actions .primary-button { flex:1 0 100%; }
++  .select-main-button { flex:1; }
++}
++@media (max-width:1050px) {
++  .select-layout { grid-template-columns:1fr; }
++  .select-roster { border-right:0; border-bottom:1px solid #543468; }
++  .select-roster-grid { grid-auto-rows:clamp(112px,15vw,158px); }
++  .select-fighter-name { font-size:clamp(12px,1.8vw,18px); }
++  .select-stage { min-height:570px; }
++  .select-stage-copy { padding:31px 36px; }
++  .select-stage-copy h1 { font-size:clamp(33px,4.7vw,49px); }
++  .select-stage-portrait { inset:62px 8% 35px 37%; }
++  .select-stage-information { max-width:64%; padding:100px 22px 28px 36px; background:linear-gradient(0deg,#1a102e 0%,#1a102ed9 65%,transparent); }
++  .select-stage-information h2 { font-size:64px; }
++  .select-stage-actions .primary-button { flex:1; }
++}
++@media (max-width:650px) {
++  .select-roster { padding:24px 12px 18px; }
++  .select-roster-grid { grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-rows:clamp(118px,32vw,155px); gap:4px 2px; }
++  .select-roster-top h2 { font-size:31px; }
++  .select-roster-help { line-height:1.5; }
++  .select-fighter-name { font-size:clamp(13px,3.6vw,18px); bottom:10px; }
++  .select-stage { min-height:590px; }
++  .select-stage-copy { padding:26px 22px 0; }
++  .select-stage-copy h1 { font-size:clamp(29px,7vw,44px); }
++  .select-stage-portrait { inset:145px 0 125px; }
++  .select-stage-information { max-width:none; padding:90px 18px 22px; }
++  .select-stage-information h2 { font-size:56px; }
++  .select-stage-actions { gap:6px; }
++  .select-stage-actions .primary-button { flex:1; font-size:9px; }
++  .select-main-button { font-size:9px; }
++}
++@media (max-width:390px) {
++  .select-roster-top h2 { font-size:27px; }
++  .select-roster-grid { grid-template-columns:repeat(4,minmax(0,1fr)); grid-auto-rows:115px; }
++  .select-fighter-name { font-size:12px; left:7px; right:7px; }
++  .select-stage-information h2 { font-size:45px; }
++  .select-stage-actions .primary-button,.select-main-button { font-size:8px; padding:9px 8px; }
++}
++@media (prefers-reduced-motion:reduce) { .select-stage-portrait,.select-stage-information { animation:none; } }
