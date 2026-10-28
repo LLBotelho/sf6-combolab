@@ -1,5 +1,5 @@
 {
-  "name": "sf6-combo-builder",
+  "name": "sf6-combolab",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,13 +12,15 @@
     "test": "node scripts/selftest.cjs",
     "artwork": "node scripts/generate-fighter-art.mjs",
     "predev": "npm run artwork",
-    "prebuild": "npm run artwork"
+    "prebuild": "npm run artwork",
+    "provision:players": "node scripts/provision-players.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.0"
+    "react-router-dom": "^7.9.0",
+    "@supabase/supabase-js": "^2.91.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
