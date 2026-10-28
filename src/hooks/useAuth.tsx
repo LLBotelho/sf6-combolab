@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
-import { playerInternalEmail } from '../lib/username';
 
 type AuthContextValue = {
   user: User | null;
@@ -38,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   async function signIn(username: string, password: string) {
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: playerInternalEmail(username), password });
+    const { error } = await supabase.auth.signInWithPassword({ email: username.trim().toLowerCase(), password });
     if (error) throw new Error('Login não autorizado. Confira o usuário e a senha.');
   }
   async function signOut() {
