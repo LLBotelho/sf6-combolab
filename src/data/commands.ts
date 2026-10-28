@@ -1,6 +1,6 @@
 import type { ComboCategory, ComboTag, CommandDefinition, CommandGroup } from '../types';
 
-const img = (name: string) => `/assets/commands/${name}.png`;
+const img = (name: string) => `${import.meta.env.BASE_URL}assets/commands/${name}.png`;
 
 export const categories: ComboCategory[] = [
   'Low combos', 'Basic combos', 'Punish combos', 'Counter combos',

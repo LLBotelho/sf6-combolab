@@ -49,13 +49,13 @@ function score(url: string, fighter: Fighter): number {
 export function getFighterArtwork(fighter: Fighter, variant: 'portrait' | 'stage'): string | null {
   const isPortrait = variant === 'portrait';
   const override = (isPortrait ? fighterPortraitOverrides : fighterDisplayOverrides)[fighter.id];
-  if (override) return override;
+  if (override) return override.startsWith('/') ? `${import.meta.env.BASE_URL}${override.slice(1)}` : override;
   const files = isPortrait ? availableFighterPortraitSvgs : availableFighterDisplaySvgs;
   const matches = files
     .map((url) => ({ url, relevance: score(url, fighter) }))
     .filter(({ relevance }) => relevance > 0)
     .sort((a, b) => b.relevance - a.relevance || a.url.length - b.url.length);
-  if (matches.length) return matches[0].url;
+  if (matches.length) return `${import.meta.env.BASE_URL}${matches[0].url.slice(1)}`;
   // Use the original supplied E. Honda reference only for large displays.
-  return !isPortrait && fighter.isReferenceArt ? '/assets/honda-reference.png' : null;
+  return !isPortrait && fighter.isReferenceArt ? `${import.meta.env.BASE_URL}assets/honda-reference.webp` : null;
 }

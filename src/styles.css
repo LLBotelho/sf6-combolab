@@ -56,7 +56,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .hero-stat-divider { height:35px; width:1px; background:#554267; }
 .hero-visual { position:relative; min-height:550px; overflow:hidden; }
 .hero-visual:after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#211536 0,transparent 29%,transparent 74%,#28174466),linear-gradient(0deg,#211536 0,transparent 26%); }
-.hero-art { position:absolute; inset:-5% -13% -5% 0; background:url('/assets/honda-reference.png') center 32%/auto 111% no-repeat; filter:contrast(1.1) saturate(1.23); mix-blend-mode:screen; opacity:.94; }
+.hero-art { position:absolute; inset:-5% -13% -5% 0; background:transparent; filter:contrast(1.1) saturate(1.23); mix-blend-mode:screen; opacity:.94; }
 .hero-kanji { position:absolute; font-size:300px; font-weight:900; color:#df5ac412; right:-75px; top:45px; }
 .hero-art-label { position:absolute; z-index:4; top:45px; right:48px; border-right:3px solid #f04bd4; padding-right:12px; text-align:right; font-size:9px; color:#cdbee1; letter-spacing:2px; font-weight:850; }
 .hero-art-label strong { display:block; margin-top:8px; font-size:16px; color:white; }
@@ -638,3 +638,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .favorite-card-remove { flex-basis:30px; height:30px; }
 }
 @media (prefers-reduced-motion:reduce) { .favorite-card,.favorite-card-open { transition:none; } }
+
+/* Cloud authentication and sync */
+.header-cloud { display:flex;align-items:center;gap:9px;font-size:10px;letter-spacing:.1em;font-weight:800;color:#c4b5d7;white-space:nowrap; }
+.cloud-indicator { width:7px;height:7px;background:#4ade80;border-radius:50%;box-shadow:0 0 10px #4ade8080; }
+.cloud-indicator--saving { background:#fbbf24;box-shadow:0 0 10px #fbbf2480; }
+.cloud-indicator--error { background:#fb7185;box-shadow:0 0 10px #fb718580; }
+.cloud-logout { color:#d9cee8;background:transparent;border:1px solid #624579;padding:7px 8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center; }
+.cloud-logout:hover,.cloud-logout:focus-visible { background:#472158;color:white; }
+.login-page,.cloud-loading { min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:32px 16px;background:radial-gradient(ellipse at 65% 32%,#301546,#100b1f 72%);color:#f6ecff; }
+.login-card { width:min(100%,470px);border:1px solid #65416c;background:linear-gradient(135deg,#24152d,#110d1d);padding:40px;box-shadow:0 24px 90px #05020a88; }
+.login-brand { display:flex;align-items:center;gap:14px;margin-bottom:32px; }
+.login-brand img { width:80px;height:74px;object-fit:contain; }
+.login-brand strong {font-size:34px;font-family:Impact,'Arial Narrow',sans-serif;letter-spacing:-.025em;color:white;}
+.login-brand strong span {color:#d63bd5;}
+.login-card h1 {font-size:clamp(36px,5vw,54px);line-height:1.02;font-family:Impact,'Arial Narrow',sans-serif;margin:10px 0 18px;}
+.login-card h1 span {color:#de46db;}
+.login-description {color:#bbaaca;font-size:14px;line-height:1.6;margin-bottom:28px;}
+.login-card form {display:flex;flex-direction:column;gap:10px;}
+.login-card form label {color:#e8d4f8;font-size:10px;font-weight:900;letter-spacing:.13em;}
+.login-card form input {background:#130e1c;border:1px solid #5a456e;border-radius:0;padding:15px 14px;color:white;min-width:0;font-size:15px;margin-bottom:12px;}
+.login-card form input:focus-visible {outline:2px solid #d73bd5;outline-offset:1px;}
+.login-card form button {margin-top:10px;justify-content:center;min-height:48px;}
+.login-card form button:disabled {opacity:.6;cursor:wait;}
+.login-error {color:#ff9aaf;font-size:13px;line-height:1.4;}
+.login-note {display:flex;align-items:center;gap:9px;color:#bcaacb;font-size:12px;margin-top:22px;}
+.login-note + .login-note {margin-top:8px;}
+@media (max-width:1100px) {.header-cloud {font-size:9px;}} 
+@media (max-width:730px) {.header-cloud span:not(.cloud-indicator) {display:none;} .login-card {padding:25px;} }

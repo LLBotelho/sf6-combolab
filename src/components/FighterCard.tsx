@@ -10,7 +10,7 @@ export function FighterCard({ fighter, index = 0 }: { fighter: Fighter; index?: 
   return <article className={`fighter-card ${main ? 'fighter-card--main' : ''}`} style={{ '--fighter-color': fighter.hue } as React.CSSProperties}>
     <div className="fighter-card-top"><span>{String(index + 1).padStart(2,'0')} / FIGHTER</span><span>{main ? 'MAIN SELECTED' : 'AVAILABLE'}</span></div>
     <Link to={`/fighter/${fighter.id}`} className="fighter-art-zone" aria-label={`Ver combos de ${fighter.name}`}>
-      {fighter.isReferenceArt ? <img src="/assets/honda-reference.png" alt="Arte de E. Honda da referência enviada" className="fighter-art-honda" /> :
+      {fighter.isReferenceArt ? <img src={`${import.meta.env.BASE_URL}assets/honda-reference.webp`} alt="Arte de E. Honda da referência enviada" className="fighter-art-honda" /> :
         <span className="fighter-placeholder" aria-hidden="true">{fighter.abbreviation}</span>}
       <span className="fighter-card-open"><ArrowUpRight size={18}/></span>
     </Link>

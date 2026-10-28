@@ -14,7 +14,7 @@ const localStorage = (() => {
 function load(relativeFile) {
   const file = path.resolve(root, relativeFile);
   if (modules.has(file)) return modules.get(file);
-  const source = fs.readFileSync(file, 'utf8');
+  const source = fs.readFileSync(file, 'utf8').replaceAll('import.meta.env.BASE_URL', "'/'");
   const js = ts.transpileModule(source, { fileName:file, compilerOptions: {
     target:ts.ScriptTarget.ES2022, module:ts.ModuleKind.CommonJS,
   }, reportDiagnostics:true });
@@ -28,6 +28,9 @@ function load(relativeFile) {
   return exports;
 }
 
+const { playerInternalEmail } = load('src/lib/username.ts');
+assert.equal(playerInternalEmail(' LUCAS '),'lucas.combolab@example.com');
+assert.throws(() => playerInternalEmail('admin'));
 const { fighters } = load('src/data/characters.ts');
 const { commands, categories, tags } = load('src/data/commands.ts');
 const { parseAppData, loadAppData, saveAppData, STORAGE_KEY } = load('src/lib/storage.ts');
