@@ -23,8 +23,8 @@ export function LoginPage() {
       <h1>ENTRE NA <span>ARENA.</span></h1>
       <p className="login-description">Entre na sua conta para encontrar seus personagens favoritos e combos em qualquer dispositivo.</p>
       <form onSubmit={(event) => void submit(event)}>
-        <label htmlFor="login-username">USUÁRIO</label>
-        <input id="login-username" autoComplete="username" type="text" maxLength={20} required value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Ex.: lucas"/>
+        <label htmlFor="login-username">E-MAIL</label>
+        <input id="login-username" autoComplete="username" type="email" maxLength={254} required value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Seu e-mail"/>
         <label htmlFor="login-password">SENHA</label>
         <input id="login-password" autoComplete="current-password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Sua senha"/>
         {(message || authError) && <p className="login-error" role="alert">{message || authError}</p>}
